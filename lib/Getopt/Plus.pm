@@ -1,9 +1,9 @@
 # (X)Emacs mode: -*- cperl -*-
 
+# Check working/testing without Term::ProgressBar
 # Document SUPER:: calling of check, etc.
 # Add validity checks to check (e.g., modes set ok)
 # Add check to mode to check mode is valid
-# Test Phat::ARSE against it
 # Document mode_info (esp. in init) (and add to SYNOPSIS)
 # Document
 
@@ -380,7 +380,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.91';
+our $VERSION = '0.92';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -1024,6 +1024,17 @@ A coderef
 
 =back
 
+=head2 Boolean Components
+
+=over 4
+
+=item args_done
+
+Set this to true to prevent any main calls.  Implemented to all callbacks from
+main to prevent further processing (without signalling an error).
+
+=back
+
 =cut
 
 Class::MethodMaker->import
@@ -1034,7 +1045,8 @@ Class::MethodMaker->import
                    mode /],
    list    => [qw/ options diag c_years output_suffix /],
    hash    => [qw/ mode_info /],
-   boolean => [qw/ _dry_run_known
+   boolean => [qw/ args_done
+                   _dry_run_known
                    __opt_dry_run /],
    method  => [qw/ end check
                    req_check /],
@@ -1429,6 +1441,7 @@ sub run {
 
     for my $arg (@ARGV) {
       last if defined $self->exit_code and $self->exit_code > 1;
+      last if $self->args_done;
       eval {
         $main->($self, $arg, [$self->output_fn($arg)]);
         $args_done++;

@@ -46,3 +46,5 @@ data/blibble.bax
 t/bin/test-script-3
 t/output-suffix.t
 testref/check/secondary
+t/bin/test-script-4
+testref/check/args_done

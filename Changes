@@ -1,5 +1,8 @@
 Revision history for Getopt::Plus. 
 
+0.92  Tue Dec 10 11:50PM GMT 2002
+	- Add args_done hook
+
 0.91  Thu Dec  5  7:49PM GMT 2002
 	- Changes made to protect run sections & log properly
 	- correct long options pod bug that printed only standard options

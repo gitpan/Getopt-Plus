@@ -19,7 +19,7 @@ use test2 qw( simple_run_test );
 
 BEGIN {
   # 1 for compilation test,
-  plan tests  => 26,
+  plan tests  => 29,
        todo   => [],
 }
 
@@ -224,6 +224,34 @@ Test the alternative modes, with the --secondary flag
                                      # default columns
                                      '<', \undef, '>', $fn, '2>', \$err],
                   name           => 'test-script-2',
+                  errref         => \$err,
+                  checkfiles     => [ $fn ],
+                  testref_subdir => 'check',
+                  exitcode       => 0,
+                  );
+}
+
+# -------------------------------------
+
+=head2 Test 24--26: args_done
+
+Test that the args_done callback operates
+
+( 1) Check that the script exited code 0
+( 2) Check that the output is as expected 
+( 3) Check that no extra files were created
+
+=cut
+
+{
+  my ($out, $err) = "";
+  my $fn = 'args_done';
+  simple_run_test(runargs        => [[$^X, -S =>'test-script-4','--secondary',
+                                      'blibble', 'blobble',],
+                                     # Redirect STDIN to force help to
+                                     # default columns
+                                     '<', \undef, '>', $fn, '2>', \$err],
+                  name           => 'test-script-4',
                   errref         => \$err,
                   checkfiles     => [ $fn ],
                   testref_subdir => 'check',
