@@ -17,7 +17,7 @@ use test qw( DATA_DIR
 
 BEGIN {
   # 1 for compilation test,
-  plan tests  => 5,
+  plan tests  => 13,
        todo   => [],
 }
 
@@ -37,10 +37,11 @@ our ($PACKAGE, $VERSION) = ('') x 2; # Keep Getopt::Plus happy
 use Getopt::Plus;
 
 my $rse = Getopt::Plus->new(scriptname => $0,
-                           main       => sub {},
-                           c_years    => [ 2002 ],
-                           package    => $PACKAGE,
-                           version    => $VERSION,);
+                            main       => sub {},
+                            c_years    => [ 2002 ],
+                            package    => $PACKAGE,
+                            version    => $VERSION,
+                            dry_run    => 1,);
 
 =head2 Test 1: compilation
 
@@ -61,7 +62,7 @@ Run /bin/true with check_run.  Check it works.
 
 {
   ok(evcheck(sub { $rse->check_run(cmd  => [[ find_exec('true') ]],
-                                    name => 'true') },
+                                   name => 'true') },
              'true ( 1)'),
      1,                                                           'true ( 1)');
 }
@@ -77,8 +78,8 @@ expect value)
 
 {
   ok(evcheck(sub { $rse->check_run(cmd    => [[ find_exec('false') ]],
-                                    name   => 'false',
-                                    expect => 1) },
+                                   name   => 'false',
+                                   expect => 1) },
              'expect ( 1)'),
      1,                                                         'expect ( 1)');
 }
@@ -96,12 +97,103 @@ stuff.
   my $fn = '/etc/passwd';
   my $out = '';
   ok(evcheck(sub { $rse->check_run(cmd    => [[ 'cat', $fn ]],
-                                    name   => 'cat',
-                                    stdout => \$out,
-                                   ) },
+                                   name   => 'cat',
+                                   stdout => \$out,
+                                  ) },
              'stdout ( 1)'),
-     1,                                                          'stdout ( 1)');
-  ok $out, read_file($fn),                                       'stdout ( 2)';
+     1,                                                         'stdout ( 1)');
+  ok $out, read_file($fn),                                      'stdout ( 2)';
+}
+
+# -------------------------------------
+
+=head2 Test 6--7: dry_run 1
+
+Run cat /etc/passwd with check_run, with dry_run set to 0.  Check it works,
+and it outputs the right stuff.
+
+=cut
+
+{
+  my $fn = '/etc/passwd';
+  my $out = '';
+  ok(evcheck(sub { $rse->check_run(cmd     => [[ 'cat', $fn ]],
+                                   name    => 'cat',
+                                   stdout  => \$out,
+                                   dry_run => 0,
+                                  ) },
+             'dry_run 1 ( 1)'),
+     1,                                                      'dry_run 1 ( 1)');
+  ok $out, read_file($fn),                                   'dry_run 1 ( 2)';
+}
+
+# -------------------------------------
+
+=head2 Test 8--9: dry_run 2
+
+Run cat /etc/passwd with check_run, with dry_run set to 0, and the dry_run
+option invoked.  Check it works, and it outputs the right stuff.
+
+=cut
+
+{
+  my $fn = '/etc/passwd';
+  my $out = '';
+  $rse->set___opt_dry_run;
+  ok(evcheck(sub { $rse->check_run(cmd     => [[ 'cat', $fn ]],
+                                   name    => 'cat',
+                                   stdout  => \$out,
+                                   dry_run => 0,
+                                  ) },
+             'dry_run 2 ( 1)'),
+     1,                                                      'dry_run 2 ( 1)');
+  ok $out, read_file($fn),                                   'dry_run 2 ( 2)';
+}
+
+# -------------------------------------
+
+=head2 Test 10--11: dry_run 3
+
+Run cat /etc/passwd with check_run, with dry_run set to 1, and the dry_run
+option invoked.  Check it works, and nothing is output.
+
+=cut
+
+{
+  my $fn = '/etc/passwd';
+  my $out = '';
+  $rse->set___opt_dry_run;
+  ok(evcheck(sub { $rse->check_run(cmd     => [[ 'cat', $fn ]],
+                                   name    => 'cat',
+                                   stdout  => \$out,
+                                   dry_run => 1,
+                                  ) },
+             'dry_run 3 ( 1)'),
+     1,                                                      'dry_run 3 ( 1)');
+  ok $out, '',                                               'dry_run 3 ( 2)';
+}
+
+# -------------------------------------
+
+=head2 Test 12--13: dry_run 4
+
+Run cat /etc/passwd with check_run, with dry_run set to 1, and the dry_run
+option not invoked.  Check it works, and it outputs the right stuff.
+
+=cut
+
+{
+  my $fn = '/etc/passwd';
+  my $out = '';
+  $rse->clear___opt_dry_run;
+  ok(evcheck(sub { $rse->check_run(cmd     => [[ 'cat', $fn ]],
+                                   name    => 'cat',
+                                   stdout  => \$out,
+                                   dry_run => 1,
+                                  ) },
+             'dry_run 4 ( 1)'),
+     1,                                                      'dry_run 4 ( 1)');
+  ok $out, read_file($fn),                                   'dry_run 4 ( 2)';
 }
 
 # ----------------------------------------------------------------------------

@@ -1,5 +1,10 @@
 Revision history for Getopt::Plus. 
 
+0.95  Sun Apr 20  2:23PM GMT 2003
+	- Add human_file_size function
+	- Document commify, ftime, check_run, run, find_exec
+	- Add dry_run option to check_run
+
 0.94  Sat Mar  8 11:24AM GMT 2003
 	- Fix test-script.t to work for perl 5.8.0 (Pod::Text 2.2)
 

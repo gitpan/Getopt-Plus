@@ -38,7 +38,7 @@ our @EXPORT_OK   = qw( OPT_FLOAT OPT_INT OPT_STRING OPT_BOOLEAN OPT_FDLEVEL
                        ERR_OK ERR_ABNORMAL ERR_UTILITY ERR_USAGE
                        ERR_IO_READ ERR_IO_WRITE
                        ERR_RDBMS_READ ERR_RDBMS_WRITE ERR_EXTERNAL ERR_UNKNOWN
-                       find_exec ftime commify
+                       find_exec ftime commify human_file_size
                        $PACKAGE $VERSION );
 our %EXPORT_TAGS = ( opt_types  => [qw/ OPT_FLOAT OPT_INT OPT_STRING
                                         OPT_BOOLEAN OPT_FDLEVEL /],
@@ -62,7 +62,7 @@ use File::Spec::Functions        1.1 qw( catfile );
 use File::Temp                  0.12 qw( tempfile );
 use Getopt::Long                2.25 qw( );
 use IPC::Run                    0.44 qw( harness );
-use List::Util                  1.06 qw( min max sum );
+use List::Util                  1.06 qw( first min max sum );
 use Log::Info                   1.13 qw( :DEFAULT :log_levels
                                          :default_channels :trap );
 use Pod::Select                 1.13 qw( podselect );
@@ -97,6 +97,21 @@ Z<>
 
 # Maximum width of option name column in opt output
 use constant MAX_OPT_WIDTH => 13;
+
+=head2 FILE_SIZE_HUMAN
+
+Map from file size in bytes to human name, as hashref, keys being name (full
+name, lowercase, no trailing 's') and abbrev (one/two-letter abbreviation).
+
+=cut
+
+use constant FILE_SIZE_HUMAN =>
+  +{ 1024**0 => +{ name => 'byte',     abbrev => 'b' },
+     1024**1 => +{ name => 'kilobyte', abbrev => 'Kb' },
+     1024**2 => +{ name => 'megabyte', abbrev => 'Mb' },
+     1024**3 => +{ name => 'gigabyte', abbrev => 'Gb' },
+     1024**4 => +{ name => 'terabyte', abbrev => 'Tb' },
+   };
 
 # OPTION TYPES ------------------------
 
@@ -380,7 +395,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.94';
+our $VERSION = '0.95';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -419,6 +434,40 @@ Z<>
 # -------------------------------------
 # CLASS UTILITY FUNCTIONS
 # -------------------------------------
+
+=head2 find_exec
+
+For each directory P of the current path (in order), check if the named
+program exists in P and is executable (just as the shell would when executing
+a command).
+
+=over 4
+
+=item ARGUMENTS
+
+=over 4
+
+=item exec
+
+The name of the command to execute
+
+=back
+
+=item RETURNS
+
+=over 4
+
+=item path
+
+If the command exists in the path, the path to the command.  The path will be
+relative if the given path segment is.  If the command does not exist in the
+path, then nothing (undef or the empty list) shall be returned.
+
+=back
+
+=back
+
+=cut
 
 sub find_exec {
   my ($exec) = @_;
@@ -507,6 +556,42 @@ sub _merge_words {
 
 # -------------------------------------
 
+=head2 ftime
+
+This function is exported upon request.
+
+=over
+
+=item SYNOPSIS
+
+  print ftime 86500; # 1d0h0m40s
+  print ftime 357;   # 5m57s
+
+=item ARGUMENTS
+
+=over
+
+=item time
+
+time (duration) to format, as a number of seconds
+
+=back
+
+=item RETURNS
+
+=over
+
+=item *
+
+The input time, formatted as days/hours/minutes/seconds (larger exponents
+produced only as needed)
+
+=back
+
+=back
+
+=cut
+
 # Format time
 
 sub ftime {
@@ -532,9 +617,105 @@ sub ftime {
 
 # -------------------------------------
 
+=head2 commify
+
+This function is exported upon request.
+
+=over
+
+=item SYNOPSIS
+
+  print commify 1_535_343;          # 1,535,343
+  print commify 1_535_343.45459845; # 1,535,343.454,598,45
+
+=item ARGUMENTS
+
+=over
+
+=item number
+
+number to commify.
+
+=back
+
+=item RETURNS
+
+=over
+
+=item *
+
+The input number, with commas between groups 3 digits.
+
+=back
+
+=back
+
+=cut
+
 sub commify ($) {
   (my $text = reverse $_[0]) =~ s/(\d{3})(?=\d)(?!\d*\.)/$1,/g;
-  return scalar reverse $text;
+  $text = reverse $text;
+  1
+    while $text =~ s/([.,])(\d{3})(?=\d)/$1$2,/g;
+  return  $text;
+}
+
+# -------------------------------------
+
+=head2 human_file_size
+
+This function is exported upon request.
+
+=over
+
+=item SYNOPSIS
+
+  print human_file_size(1_000);     # 1000b
+  print human_file_size(1_024);     # 1Kb
+  print human_file_size(1_535);     # 1Kb
+  print human_file_size(1_535_343); #1Mb
+
+=item ARGUMENTS
+
+=over
+
+=item bytes
+
+An integer being a number of bytes
+
+=back
+
+=item RETURNS
+
+=over
+
+=item *
+
+A human-readable representation of the size.  That is, the bytes suffixed with
+the appropriate b/Kb/Mb/etc. exponent.  Note that the mantissa is rounded to
+the nearest integer
+
+=back
+
+=back
+
+=cut
+
+sub human_file_size {
+  my ($bytes) = @_;
+
+  carp ("human_file_size: bytes not defined\n"), return ''
+    unless defined $bytes;
+
+  return $bytes
+    if $bytes < 1;
+
+  my $exponent =
+    first { $bytes >= $_ } sort {$b<=>$a} keys %{FILE_SIZE_HUMAN()};
+
+  return join('',
+              sprintf('%1.0f', ($bytes / $exponent)),
+              FILE_SIZE_HUMAN->{$exponent}->{abbrev});
 }
 
 # INSTANCE METHODS -----------------------------------------------------------
@@ -730,7 +911,8 @@ L<Getopt::Long|"Getopt::Long">, with the exception that the subject RSE
 instance will be inserted as the first argument.
 
 If linkage is not provided, then it must be provided in the first
-(C<linkages>) argument to L<get_options|get_options>, or else you will not be
+(C<linkages>)
+ argument to L<get_options|get_options>, or else you will not be
 able to get at any values for the option (but the user will still be able to
 use it).  This is probably only useful for compatibility options that are
 ignored.
@@ -1358,6 +1540,53 @@ $self->die(ERR_USAGE, sprintf("Mandatory options missing: %s\n", join ', ', @mis
 
 # -------------------------------------
 
+=head2 run
+
+Do the business.
+
+=over 4
+
+=item 1
+
+parse command-line options
+
+=item 2
+
+run C<check>
+
+=item 3
+
+select C<mode>, and therefore C<initialize>, C<main> & C<finalize>.
+
+=item 4
+
+run C<initialize>
+
+=item 5
+
+check number of arguments
+
+=item 6
+
+run C<main> with each argument (or with undef, if permissable and no arguments
+provided)
+
+=item 7
+
+run C<finalize>
+
+=item 8
+
+run C<end>
+
+=item 9
+
+exit with the appropriate error code
+
+=back
+
+=cut
+
 sub run {
   my $self = shift;
 
@@ -1563,7 +1792,7 @@ sub output_fn {
 
   my $stub = (fileparse($in_fn, qr!\.[^.]*$!))[0];
 
-  for my $suffix ($self->output_suffix) {
+  for my $suffix (grep defined $_, $self->output_suffix) {
     if ( length $suffix ) {
       push @Result, join '.', $stub, $suffix;
     } else {
@@ -1578,6 +1807,66 @@ sub output_fn {
 
 # Run a system command, throw an exception with command name & exit status on
 # non-zero exit
+
+=head2 check_run
+
+=over 4
+
+=item ARGUMENTS
+
+The arguments are taken as key => value pairs.  Like a hash.  The recognized
+keys are:
+
+=over 4
+
+=item cmd
+
+B<Mandatory>.  The command to run, as an arrayref of items, where each item is
+itself an arrayref (a command, as a list of arguments), or a '|' symbol (to
+pipe commands into one another.)
+
+=item name
+
+B<Optional>.  A label for informational messages.
+
+=item stdin
+
+B<Optional>.  A scalar (filename) or scalar ref (ref to hold string) for std
+input.
+
+=item stdout
+
+B<Optional>
+
+=item stderr
+
+B<Optional>
+
+=item expect
+
+B<Optional>.  The error code to expect.  Defaults to zero.  check_run will
+croak if an unexpected error_code occurs.
+
+=item err_code
+
+B<Optional>.  The error code to set in case of failure.  Defaults to
+ERR_EXTERNAL.
+
+=item redirects
+
+A list of redirects (other than std(in|out|err)), in C<IPC::Run> notation.
+
+=item dry_run
+
+If true, observes the dry_run flag --- i.e., if dry_run is set, then the
+external executable is not run (but messages are still issued).  Defaults to 0
+(for backward compatibility).
+
+=back
+
+=back
+
+=cut
 
 sub check_run {
   my $self = shift;
@@ -1596,6 +1885,13 @@ sub check_run {
   my $stdout = delete $args{stdout} || \$y;
   my $stderr = delete $args{stderr} || \$z;
 
+  my $obs_dr = delete $args{dry_run} || 0; # Observe Dry Run
+  my $dry_run = 0;
+  if ( $obs_dr ) {
+    # Protect with eval for dry_run subr croaks if dry_run flag not set.
+    eval { $dry_run = $self->dry_run };
+  }
+
   my $err_code = delete $args{err_code} || ERR_EXTERNAL;
 
   my @redirects = @{delete $args{redirects}}
@@ -1609,7 +1905,8 @@ sub check_run {
     sub { map +(UNIVERSAL::isa($_, 'ARRAY') ? $expand->(@$_) : $_), @_ };
   my $cmdstring = join ' ', $expand->($cmd);
 
-  Log (CHAN_INFO, LOG_INFO+1, "Running cmd ($name): $cmdstring");
+  Logf(CHAN_INFO, LOG_INFO+1,
+       "%s cmd ($name): $cmdstring", ($dry_run ? 'Would run' : 'Running'));
   Logf(CHAN_DEBUG, LOG_INFO,
        'Cmd %s (expecting %d) : %s',
        $name, $expect,
@@ -1621,16 +1918,19 @@ sub check_run {
               '>', $stdout, '2>', $stderr, @redirects);
   my $harness = harness @$cmd, @args;
   my $start = time;
-  $harness->run;
+  my $rv = $expect << 8;
+  unless ( $dry_run ) {
+    $harness->run;
+    $rv = $harness->full_result;
+  }
   my $end = time;
-  my $rv = $harness->full_result;
 
   Logf(CHAN_STATS, LOG_INFO,
        "Running %s took %s\n", $name, ftime($end-$start));
 
   if ( $rv & 255 or $rv >> 8 != $expect ) {
     Logf(CHAN_INFO, LOG_WARNING,
-         'Command $name failed with err output: %s', $$stderr)
+         'Command %s failed with err output: %s', $name, $$stderr)
       if defined $stderr and $$stderr !~ /^\s*$/;
     $self->exit_code($err_code)
       if $err_code;
@@ -2010,7 +2310,7 @@ Martyn J. Pearce C<fluffy@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2002 Martyn J. Pearce.
+Copyright (c) 2002, 2003 Martyn J. Pearce.
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.
