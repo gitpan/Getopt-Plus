@@ -19,7 +19,7 @@ Executables Provided:
 Required Packages:
 
     Class-MethodMaker 1.04
-    Log-Info          1.09
+    Log-Info          1.13
     IPC-Run           0.44
     Scalar-List-Utils 1.06
 
@@ -36,4 +36,4 @@ Copyright:
     Copyright 2002 Martyn J. Pearce.  This program is free software; you
     can redistribute it and/or modify it under the same terms as Perl itself.
 
-28th November, 2002
+5th December, 2002

@@ -2,7 +2,9 @@
 
 # Document SUPER:: calling of check, etc.
 # Add validity checks to check (e.g., modes set ok)
+# Add check to mode to check mode is valid
 # Test Phat::ARSE against it
+# Document mode_info (esp. in init) (and add to SYNOPSIS)
 # Document
 
 package Getopt::Plus;
@@ -61,7 +63,7 @@ use File::Temp                  0.12 qw( tempfile );
 use Getopt::Long                2.25 qw( );
 use IPC::Run                    0.44 qw( harness );
 use List::Util                  1.06 qw( min max sum );
-use Log::Info                   1.09 qw( :DEFAULT :log_levels
+use Log::Info                   1.13 qw( :DEFAULT :log_levels
                                          :default_channels :trap );
 use Pod::Select                 1.13 qw( podselect );
 use Pod::Text                   2.08 qw( );
@@ -378,7 +380,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.90';
+our $VERSION = '0.91';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -783,8 +785,6 @@ environment.  Any return value is ignored; if an error is detected, call C<<
 $rse->die >>, and the program will terminate appropriately before any real
 work is done.
 
-This code is not called in requisites mode.
-
 Default: an empty coderef.
 
 =item finalize
@@ -795,8 +795,6 @@ intended to perform any cleanup tasks common to all arguments; often cleaning
 up resources allocated by C<initialize>.  Any return value is ignored; if an
 error is detected, call C<< $rse->die >>, and the program will terminate
 appropriately.
-
-This code is not called in requisites mode.
 
 Default: an empty coderef.
 
@@ -1091,6 +1089,8 @@ sub dry_run {
 
 sub dump_man      { $_[0]->_dump_pod(ERR_UTILITY, 2, $_[1]) }
 
+# -------------------------------------
+
 sub dump_help     {
   my $self = shift;
   my ($outfh, $optname) = @_;
@@ -1336,8 +1336,8 @@ sub get_options {
 
   unless ( $self->exit_code ) {
     my @missing = grep ! defined ${$mandatory->{$_}}, keys %$mandatory;
-    warn(sprintf("Mandatory options missing: %s\n", join ', ', @missing)),
-      $self->exit_code(ERR_USAGE)
+$self->die(ERR_USAGE, sprintf("Mandatory options missing: %s\n", join ', ', @missing))
+
       if @missing;
   }
 }
@@ -1347,7 +1347,15 @@ sub get_options {
 sub run {
   my $self = shift;
 
-  $self->get_options;
+  eval { # Protect from early death so, e.g., end can run
+    $self->get_options;
+  }; if ( $@ ) {
+    # Log it because die itself is caught.
+    Log(CHAN_INFO, LOG_ERR, $@);
+    eval {
+      $self->die(ERR_USAGE, 'options parsing failed');
+    };
+  }
 
   # For arg. consistency checks, etc.
   # This differs from initialize in that this runs in both requisite & normal
@@ -1356,8 +1364,11 @@ sub run {
     eval { # Protect from early death so, e.g., end can run
       $self->check;
     }; if ( $@ ) {
+      # Log it because die itself is caught.
+      Log(CHAN_INFO, LOG_ERR, $@);
+      Log(CHAN_INFO, LOG_ERR, 'check failed');
       eval {
-        $self->die(ERR_UNKNOWN, "check failed");
+        $self->die(ERR_UNKNOWN, 'check failed');
       };
     }
   }
@@ -1381,31 +1392,39 @@ sub run {
 
     # General set up prior to handling arguments.  This might include
     # frigging @ARGV itself
-    # Deliberately doesn't run in requisites mode.  Use C<check> for that.
     eval {
       # Protect from early death so, e.g., C<end> can run
       $initialize->($self);
     }; if ( $@ ) {
+      # Log it because die itself is caught.
+      Log(CHAN_INFO, LOG_ERR, $@);
+      Log(CHAN_INFO, LOG_ERR, 'initialize failed');
       eval {
-        $self->die(ERR_UNKNOWN, "initialize failed");
+        $self->die(ERR_UNKNOWN, 'initialize failed');
       };
     }
 
     eval {
       # Protect from early death so, e.g., C<end> can run
-      $self->die(ERR_USAGE,
-                 sprintf "%s: brooks no argument\n", $self->scriptname)
-        if @ARGV and $self->arg_ary eq '0';
+      if ( @ARGV and $self->arg_ary eq '0' ) {
+        my $message = sprintf "%s: brooks no argument\n", $self->scriptname;
+        # Log it because die itself is caught.
+        Log(CHAN_INFO, LOG_ERR, $message);
+        $self->die(ERR_USAGE, $message);
+      }
     };
 
     eval { # Protect from early death so, e.g., C<end> can run
       my $args = join('', map "-->$_<--", @ARGV);
       my $got = @ARGV ? sprintf('%d: %s', scalar @ARGV, $args) : '0';
-      $self->die(ERR_USAGE,
-                 sprintf("%s: takes exactly one argument (got %s)\n",
-                         $self->scriptname,
-                         $got))
-        if $self->arg_ary eq '1' and @ARGV != 1;
+      if ( $self->arg_ary eq '1' and @ARGV != 1 ) {
+        my $message = sprintf("%s: takes exactly one argument (got %s)\n",
+                           $self->scriptname,
+                           $got);
+        # Log it because die itself is caught.
+        Log(CHAN_INFO, LOG_ERR, $message);
+        $self->die(ERR_USAGE, $message);
+      }
     };
 
     for my $arg (@ARGV) {
@@ -1421,7 +1440,12 @@ sub run {
         my $message = "failed processing argument: $arg";
         $message   .= ":\n  $@"
           if $@ !~ /^\s*$/;
-        $self->die(undef, $message);
+        eval {
+          # Protect from early death so, e.g., C<end> can run
+          # Log it because die itself is caught.
+          Log(CHAN_INFO, LOG_ERR, $message);
+          $self->die(undef, $message);
+        }
       }
     }
 
@@ -1436,7 +1460,12 @@ sub run {
           my $message = 'failed processing empty argument';
           $message   .= ":\n  $@"
             if $@ !~ /^\s*$/;
-          $self->die(undef, $message);
+          eval {
+            # Protect from early death so, e.g., C<end> can run
+            # Log it because die itself is caught.
+            Log(CHAN_INFO, LOG_ERR, $message);
+            $self->die(undef, $message);
+          }
         }
       } else {
         $self->die(ERR_USAGE, 'At least one arg must be given');
@@ -1449,6 +1478,9 @@ sub run {
       $finalize->($self)
         unless $self->exit_code and $self->exit_code > 1;
     }; if ( $@ ) {
+      # Log it because die itself is caught.
+      Log(CHAN_INFO, LOG_ERR, $@);
+      Log(CHAN_INFO, LOG_ERR, 'finalize failed');
       eval {
         $self->die(ERR_UNKNOWN, "finalize failed");
       };
@@ -1461,7 +1493,12 @@ sub run {
     # This even runs in help mode
     $self->end;
   }; if ( $@ ) {
-    $self->die(ERR_UNKNOWN, "Error executing clean-up");
+    # Log it because die itself is caught.
+    Log(CHAN_INFO, LOG_ERR, $@);
+    Log(CHAN_INFO, LOG_ERR, "Error executing clean-up");
+    eval { # Protect from early death so, e.g., C<end> can run
+      $self->die(ERR_UNKNOWN, "Error executing clean-up");
+    }
   }
 
   my $exit = $self->exit_code;
@@ -1855,12 +1892,14 @@ sub _make_pod_optl {
 
   my $over = 0;
  OPTION:
-  for (grep defined, @{STANDARD_OPTIONS()}) {
+  for (grep defined, @{$self->options}) {
     next OPTION
       if $_->{hidden};
     # Place long options first in longhelp
     my $names = join '|', sort { length($b) <=> length($a) } @{$_->{names}};
-    (my $desc  = $_->{desc}) =~ s/\n+\Z//;
+    my $desc  = $_->{desc};
+    $desc =~ s/\n+\Z//
+      if defined $desc;
     if ( defined $desc and length $desc ) {
       print $fh "=over 4\n\n"
         unless $over;

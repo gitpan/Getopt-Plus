@@ -155,7 +155,7 @@ permutation of C<--arg1=bob>, C<--arg2=baz> (on/off).
                   "BOB: 1\n"),
                sprintf("arg linkage (%s) (%2d)", join(',', keys %$arg), $i++));
     ok($err,
-       "At least one arg must be given\n" x 2,
+       "At least one arg must be given\n",
                sprintf("arg linkage (%s) (%2d)", join(',', keys %$arg), $i++));
   }
 }
@@ -343,7 +343,7 @@ of -b, --bob, --nobob (and --bob --nobob, --nobob -b)
     ok($out, ($j ? sprintf("BOB: %s\n", (qw(1 1 0 0 1))[$j-1]) : ''),
                                           sprintf("arg linkage (b) (%s) (%2d)",
                                                   join(',', @opts), $i++));
-    ok($err, (@opts ? "At least one arg must be given\n" x 2 : 
+    ok($err, (@opts ? "At least one arg must be given\n" : 
                       "Mandatory options missing: bob|b\n"),
                                           sprintf("arg linkage (b) (%s) (%2d)",
                                                   join(',', @opts), $i++));

@@ -1,5 +1,9 @@
 Revision history for Getopt::Plus. 
 
+0.91  Thu Dec  5  7:49PM GMT 2002
+	- Changes made to protect run sections & log properly
+	- correct long options pod bug that printed only standard options
+
 0.90  Thu Nov 28  8:06PM GMT 2002
 	- First Public Version
 	- Replace explicite requisite handling with generalized modes of

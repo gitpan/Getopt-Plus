@@ -13,7 +13,7 @@ use constant MOD_REQS =>
 
     { name    => 'Log::Info',
       package => 'Log-Info',
-      version => '1.09', },
+      version => '1.13', },
 
     { name    => 'List::Util',
       package => 'Scalar-List-Utils',
