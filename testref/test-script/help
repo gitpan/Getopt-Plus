@@ -1,0 +1,22 @@
+Usage:
+    test-script [options] file+
+
+      Option        Value       Default  Unit  Meaning
+      -a|--arg1     string      foo            No meaning
+      -A|--arg2     [float]     1.5            
+      -b|--bob                  ------         
+
+      -v|--verbose  [fd/level]                 Output informational messages
+      --progress    [fd/level]                 Output progress messages
+      --stats       [fd/level]                 Output statistical information
+
+      --help        [string]                   Produce summary help on stdout
+      --longhelp                               Produce long help on stdout
+      --man                                    Produce full man page on stdout
+      --version                                Produce full version on stdout
+      --copyright                              Produce full copyright on stdout
+      -V|--briefversion                        Produce brief version on stdout
+
+      --dry-run                                Don't really do anything
+      --debug       [fd/level]                 
+
