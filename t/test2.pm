@@ -214,18 +214,6 @@ Defaults to zero.
 
 1 if the command executed without failure; false otherwise.
 
-=item exit
-
-B<Only returned in list context>
-
-=item signal
-
-B<Only returned in list context>
-
-=item core
-
-B<Only returned in list context>
-
 =back
 
 =back
@@ -233,11 +221,9 @@ B<Only returned in list context>
 =cut
 
 sub runcheck {
-  my ($runargs, $name, $errref, $expect) = @_;
+  my ($runargs, $name, $errref, $exitcode) = @_;
 
-  $expect ||= 0;
-  $expect = [ $expect ]
-    unless ref $expect;
+  $exitcode ||= 0;
 
   my @args = map({ ( ref $_ eq 'ARRAY' and substr($_->[0],0,1) eq ':') ?
                      [ $^X, catfile(BIN_DIR, substr($_->[0],1)),
@@ -248,18 +234,19 @@ sub runcheck {
   print STDERR Data::Dumper->new([\@args],[qw(args)])->Indent(0)->Dump, "\n"
     if defined $ENV{TEST_DEBUG} and $ENV{TEST_DEBUG} > 1;
   my $rv = $ipc_run ? _ipc_run(@args) : _nonipc_run(@args);
-  my ($exit, $sig, $core) = ($rv >> 8, $rv & 127, ( $rv & 128 ) >> 7);
 
-  unless ( grep $rv >> 8 == $_, @$expect ) {
+  if ( $rv >> 8 != $exitcode ) {
     if ( $ENV{TEST_DEBUG} ) {
-      warn sprintf("$name failed (expected %s) : exit:sig:core %d:%d:%d\n",
-                   join('/',@$expect), $exit, $sig, $core);
-      warn "  $$errref\n"
-        if defined $errref and defined $$errref and $$errref !~ /^\s*$/;
+      print STDERR
+        sprintf("$name failed (expected %d) : exit/sig/core %d/%d/%d\n",
+                $exitcode, $rv >> 8, $rv & 127, ( $rv & 128 ) >> 7);
+      print STDERR
+        "  $$errref\n"
+          if defined $errref and defined $$errref and $$errref !~ /^\s*$/;
     }
-    return wantarray ? (undef, $exit, $sig, $core) : ();
+    return;
   } else {
-    return wantarray ? (1, $exit, $sig, $core) : 1;
+    return 1;
   }
 }
 
@@ -333,10 +320,10 @@ sub _nonipc_run {
       my ($pipe, $redirect, $fh) = ($pipes[$fd], $redirects[$fd], $fhs[$fd]);
       if ( $redirect eq '<' ) {
         $pipe->reader;
-        open $fh, '<& ' . $pipe->fileno;
+        open $fh, '<&' . $pipe->fileno;
       } elsif ( $redirect eq '>' ) {
         $pipe->writer;
-        open $fh, '>& ' . $pipe->fileno;
+        open $fh, '>&' . $pipe->fileno;
       } else {
         croak "Internal error: redirect $fd should not be -->$redirect<--\n";
       }
@@ -424,7 +411,7 @@ sub _nonipc_run {
         }
       }
     } elsif ( $kidstatus ) {
-      # Take an early bath --- but only if reading is done (so we can collect
+      # Take an early bath --- but only if reading is done (so we can collect 
       # up any output so far e.g., for diagnostic assistance
       last SELECT;
     } else {
@@ -540,7 +527,9 @@ sprintf("Incomplete write (wrote %d bytes, should've been %d) on fd %d\n",
   }
 
   if ( ! defined $kidstatus ) {
-    my $waitpid = waitpid $pid, WNOHANG;
+    # Log::Info tests (trap.t) on Solaris fail with WNOHANG --- the child 
+    # process seems to hang around for a shade longer that one might expect
+    my $waitpid = waitpid $pid, 0; #WNOHANG;
     my $kidstatus = $?;
   }
   return $kidstatus;
@@ -578,30 +567,24 @@ B<Mandatory>.  The name to use in error messages.
 
 =item checkfiles
 
-B<Optional>.  This is an arrayref of files to check.  The named files are
-considered relative to the working directory, and are checked against files
-taken relative to the F<testref> directory of the build.  Therefore, absolute
-file names are non-sensical, and will raise an exception.
+This is an arrayref of files to check.  The named files are considered
+relative to the working directory, and are checked against files taken
+relative to the F<testref> directory of the build.  Therefore, absolute file
+names are non-sensical, and will raise an exception.
 
 =item errref
 
-B<Optional>.  A ref to a scalar potentially containing any error output.
-Typically, the stderr of the command run is redirected to this by the runargs
-argument.
+A ref to a scalar potentially containing any error output.  Typically, the
+stderr of the command run is redirected to this by the runargs argument.
 
 =item testref_subdir
 
-B<Optional>.  A subdirectory of the testref directory in which to find the
-files to check against.
+A subdirectory of the testref directory in which to find the files to check
+against.
 
 =item exitcode
 
-B<Optional>.  The exit code to expect from the program run.  Defaults to 0.
-Obviously.
-
-=item extrafiles
-
-B<Optional>.  Extra files to expect to see (but not to check).
+The exit code to expect from the program run.  Defaults to 0.  Obviously.
 
 =back
 
@@ -644,10 +627,7 @@ sub simple_run_test {
     }
   }
 
-  my @expect_files =
-    map @{$arg{$_}}, grep exists $arg{$_}, qw( checkfiles extrafiles );
-
-  ok(only_files(\@expect_files), 1, "$arg{name}: no extra files");
+  ok(only_files($arg{checkfiles}), 1, "$arg{name}: no extra files");
   # Clean up files for next test.
   local *MYDIR;
   opendir MYDIR, '.';

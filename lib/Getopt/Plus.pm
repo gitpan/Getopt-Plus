@@ -380,7 +380,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.92';
+our $VERSION = '0.93';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -553,41 +553,43 @@ Z<>
 
 Create & return a new thing.
 
-my $RSE =
-  Getopt::Plus->new(scriptname => 'exec-monitor',
-                    scriptsumm => 'Exec a process, monitor resources',
-                    copyright  => <<'END',
-This program is copyright __CYEARS__ Martyn J. Pearce. This program is free
-software; you can redistribute it and/or modify it under the same terms
-as Perl itself.
-END
-                    main       => sub {},
-                    argtype    => 'exec',
-                    arg_ary    => '+',
-                    options    =>
-                      [{
-                        names     => [qw( output o )],
-                        type      => OPT_FDLEVEL,
-                        arg_reqd  => 1,
-                        mandatory => 0,
-                        summary   => 'No meaning',
-                        desc      => 'No description',
-                        default   => 'foo',
-                        linkage   => sub {
-                          my ($rse, $opt, $value) = @_;
-                          Log::Info::enable_file_channel(MONITOR_CHANNEL,
-                                                         $value,
-                                                         'output',
-                                                         MONITOR_SINK);
-                          $sink_added = 1;
-                        },
-                       },
-                      ],
-                    );
-
-$RSE->run;
-
 =over 4
+
+=item SYNOPSIS
+
+  my $RSE =
+    Getopt::Plus->new(scriptname => 'exec-monitor',
+                      scriptsumm => 'Exec a process, monitor resources',
+                      copyright  => <<'END',
+  This program is copyright __CYEARS__ Martyn J. Pearce. This program is free
+  software; you can redistribute it and/or modify it under the same terms
+  as Perl itself.
+  END
+                      main       => sub {},
+                      argtype    => 'exec',
+                      arg_ary    => '+',
+                      options    =>
+                        [{
+                          names     => [qw( output o )],
+                          type      => OPT_FDLEVEL,
+                          arg_reqd  => 1,
+                          mandatory => 0,
+                          summary   => 'No meaning',
+                          desc      => 'No description',
+                          default   => 'foo',
+                          linkage   => sub {
+                            my ($rse, $opt, $value) = @_;
+                            Log::Info::enable_file_channel(MONITOR_CHANNEL,
+                                                           $value,
+                                                           'output',
+                                                           MONITOR_SINK);
+                            $sink_added = 1;
+                          },
+                         },
+                        ],
+                      );
+
+  $RSE->run;
 
 =item ARGUMENTS
 
