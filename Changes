@@ -1,5 +1,8 @@
 Revision history for Getopt::Plus. 
 
+0.94  Sat Mar  8 11:24AM GMT 2003
+	- Fix test-script.t to work for perl 5.8.0 (Pod::Text 2.2)
+
 0.93  Fri Dec 20 10:57PM GMT 2002
 	- Fix test2.pm to work on Solaris, too
 	- Indent ::new synopsis so as to get verbatim POD output

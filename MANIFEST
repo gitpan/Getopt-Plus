@@ -48,3 +48,5 @@ t/output-suffix.t
 testref/check/secondary
 t/bin/test-script-4
 testref/check/args_done
+testref/test-script/longhelp.2.2
+testref/test-script/man.2.2

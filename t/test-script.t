@@ -18,6 +18,7 @@ use constant ME => rel2abs $0;
 
 use lib $Bin;
 use test  qw( DATA_DIR REF_DIR
+              PERL
               compare evcheck tmpnam );
 use test2 qw( runcheck );
 
@@ -62,18 +63,23 @@ Invoke test-script with the C<help>, C<longhelp>, C<man> options in turn
 
 for my $opt (qw( help longhelp man )) {
   my ($out, $err) = ('') x 2;
-  ok(runcheck([[$^X, '-S', 'test-script', "--$opt"],
+  ok(runcheck([[PERL, '-S', 'test-script', "--$opt"],
                '<', \undef, '>', \$out, '2>', \$err],
               "test-script --$opt",
               \$err,
               2),
      1,                                                 "help options ($opt)");
+
   my $tmpnam = tmpnam;
   open my $tmpfh, '>', $tmpnam;
   local $\ = undef;
   print $tmpfh $out;
   close $tmpfh;
-  ok compare($tmpnam, catfile(REF_DIR, 'test-script', $opt));
+  
+  my $comparison = catfile(REF_DIR, 'test-script', $opt);
+  $comparison = "$comparison.2.2"
+    if $Pod::Text::VERSION >= 2.2 and -e "$comparison.2.2"; 
+  ok compare($tmpnam, $comparison);
 }
 
 # -------------------------------------
@@ -88,7 +94,7 @@ Invoke test-script with the C<--weird> option.
 
 {
   my ($out, $err) = ('') x 2;
-  ok(runcheck([[$^X, '-S', 'test-script', '-b', '--weird'],
+  ok(runcheck([[PERL, '-S', 'test-script', '-b', '--weird'],
                '<', \undef, '>', \$out, '2>', \$err],
               'exit code assignment',
               \$err,
@@ -108,9 +114,10 @@ options in turn
 
 =cut
 
+use Pod::Text;
 for my $opt (qw( copyright version briefversion V )) {
   my ($out, $err) = ('') x 2;
-  ok(runcheck([[$^X, '-S', 'test-script',
+  ok(runcheck([[PERL, '-S', 'test-script',
                 length($opt) > 1 ? "--$opt" : "-$opt" ],
                '<', \undef, '>', \$out, '2>', \$err],
               "test-script --$opt",
@@ -144,7 +151,7 @@ permutation of C<--arg1=bob>, C<--arg2=baz> (on/off).
   for my $arg ({}, {qw(arg1 bob)}, {qw(arg2 2.0 )}, {qw(arg1 bob arg2 2.0)}) {
     my ($out, $err) = ('') x 2;
     my @opts = map {; "--$_=$arg->{$_}" } keys %$arg;
-    ok(runcheck([[$^X, '-S', 'test-script', '-b', @opts],
+    ok(runcheck([[PERL, '-S', 'test-script', '-b', @opts],
                  '<', \undef, '>', \$out, '2>', \$err],
                 sprintf("arg linkage (%s)", join(',', keys %$arg)),
                 \$err,
@@ -175,7 +182,7 @@ sub checkit {
   my $name = join ' ', @$opts;
 
   my($out, $err) = ('') x 2;
-  ok(runcheck([[$^X, '-S', 'test-script', '-b',
+  ok(runcheck([[PERL, '-S', 'test-script', '-b',
                 map(length($_) > 1 ? "--$_" : "-$_", @$opts),
                 ME],
                '<', \undef, '>', \$out, '2>', \$err],
@@ -207,7 +214,7 @@ sub checkit {
     my ($text, $text2) = @{$opts{$opt}};
 
     for my $name (split /\|/, $opt) {
-      checkit([$name], '', $text);
+      checkit(["$name="], '', $text);
 
       if ( length($name) > 1 ) {
         checkit(["$name=+1"],        '', $text);
@@ -223,7 +230,7 @@ sub checkit {
 
       if ( defined $text2 ) {
         my $alltext = join('', $text, $text2);
-        checkit([$name, $name], '', $alltext);
+        checkit(["$name=", "$name="], '', $alltext);
 
         if ( length($name) > 1 ) {
           checkit(["$name=+2"],       '', $alltext);
@@ -252,7 +259,7 @@ Invoke test-script with & without the dry-run option.  Check that
 {
   my($out, $err) = ('') x 2;
   # It requires an argument
-  ok(runcheck([[$^X, '-S', 'test-script', ME, '--nobob'],
+  ok(runcheck([[PERL, '-S', 'test-script', ME, '--nobob'],
                '<', \undef, '>', \$out, '2>', \$err],
               '(no) dry-run', \$err), 1,                       'dry-run ( 1)');
   ok $out, "BOB: 0\n",                                         'dry-run ( 2)';
@@ -261,7 +268,7 @@ Invoke test-script with & without the dry-run option.  Check that
 
 {
   my($out, $err) = ('') x 2;
-  ok(runcheck([[$^X, '-S', 'test-script', '--dry-run', ME, '--nobob'],
+  ok(runcheck([[PERL, '-S', 'test-script', '--dry-run', ME, '--nobob'],
                '<', \undef, '>', \$out, '2>', \$err],
               'dry-run', \$err), 1,                            'dry-run ( 4)');
   ok $out, "BOB: 0\nNothing doing\n",                          'dry-run ( 5)';
@@ -282,7 +289,7 @@ for my $opt (qw( V briefversion copyright debug dry-run help longhelp man
   my($out, $err) = ('') x 2;
   my $name = "help options ($opt)";
   my $expect = read_file(catfile REF_DIR, 'test-script', 'littlehelp', $opt);
-  ok(runcheck([[$^X, '-S', 'test-script', "--help=$opt"],
+  ok(runcheck([[PERL, '-S', 'test-script', "--help=$opt"],
                '<', \undef, '>', \$out, '2>', \$err],
               $name, \$err, 2), 1,                               "$name ( 1)");
   ok $out, $expect,                                              "$name ( 2)";
@@ -302,7 +309,7 @@ output is as expected.
   my($out, $err) = ('') x 2;
   my $name = "bad help option";
   my $opt = 'nosuchoption';
-  ok(runcheck([[$^X, '-S', 'test-script', "--help=$opt"],
+  ok(runcheck([[PERL, '-S', 'test-script', "--help=$opt"],
                '<', \undef, '>', \$out, '2>', \$err],
               $name, \$err, 3), 1,                               "$name ( 1)");
   ok $out, '',                                                   "$name ( 2)";
@@ -332,7 +339,7 @@ of -b, --bob, --nobob (and --bob --nobob, --nobob -b)
                [qw(--bob --nobob)], [qw(--nobob --b)]) {
     my ($out, $err) = ('') x 2;
     my @opts = @$arg;
-    ok(runcheck([[$^X, '-S', 'test-script', @opts],
+    ok(runcheck([[PERL, '-S', 'test-script', @opts],
                  '<', \undef, '>', \$out, '2>', \$err],
                                           sprintf("arg linkage (b) (%s)", 
                                                   join(',', @opts)),

@@ -14,7 +14,8 @@ use FindBin               1.42 qw( $Bin );
 use Test                  1.13 qw( ok plan );
 
 use lib $Bin;
-use test  qw( LIB_DIR );
+use test  qw( LIB_DIR
+              PERL );
 use test2 qw( simple_run_test );
 
 BEGIN {
@@ -52,7 +53,7 @@ Run the test script.
 {
   my ($out, $err) = "";
   my $fn = 'normal';
-  simple_run_test(runargs        => [[$^X, -S => 'test-script-2'],
+  simple_run_test(runargs        => [[PERL, -S => 'test-script-2'],
                                      '>', $fn, '2>', \$err],
                   name           => 'test-script-2',
                   errref         => \$err,
@@ -79,7 +80,7 @@ Run the test script, with the --fail1 option
 {
   my ($out, $err) = "";
   my $fn = 'fail1';
-  simple_run_test(runargs        => [[$^X, -S => 'test-script-2', '--fail1'],
+  simple_run_test(runargs        => [[PERL, -S => 'test-script-2', '--fail1'],
                                      '>', $fn, '2>', \$err],
                   name           => 'test-script-2',
                   errref         => \$err,
@@ -108,7 +109,7 @@ Run the test script, with the --fail2 option
 {
   my ($out, $err) = "";
   my $fn = 'fail2';
-  simple_run_test(runargs        => [[$^X, -S => 'test-script-2', '--fail2'],
+  simple_run_test(runargs        => [[PERL, -S => 'test-script-2', '--fail2'],
                                      '>', $fn, '2>', \$err],
                   name           => 'test-script-2',
                   errref         => \$err,
@@ -137,7 +138,7 @@ Run the test script, with the --fail3 option
 {
   my ($out, $err) = "";
   my $fn = 'fail3';
-  simple_run_test(runargs        => [[$^X, -S => 'test-script-2', '--fail3'],
+  simple_run_test(runargs        => [[PERL, -S => 'test-script-2', '--fail3'],
                                      '>', $fn, '2>', \$err],
                   name           => 'test-script-2',
                   errref         => \$err,
@@ -166,7 +167,7 @@ Run the test script, with the --msg option
 {
   my ($out, $err) = "";
   my $fn = 'msg';
-  simple_run_test(runargs        => [[$^X, -S => 'test-script-2', '--msg'],
+  simple_run_test(runargs        => [[PERL, -S => 'test-script-2', '--msg'],
                                      '>', $fn, '2>', \$err],
                   name           => 'test-script-2',
                   errref         => \$err,
@@ -192,7 +193,7 @@ Run the test script, with the --help option
 {
   my ($out, $err) = "";
   my $fn = 'help';
-  simple_run_test(runargs        => [[$^X, -S => 'test-script-2', '--help'],
+  simple_run_test(runargs        => [[PERL, -S => 'test-script-2', '--help'],
                                      # Redirect STDIN to force help to
                                      # default columns
                                      '<', \undef, '>', $fn, '2>', \$err],
@@ -211,7 +212,7 @@ Run the test script, with the --help option
 Test the alternative modes, with the --secondary flag
 
 ( 1) Check that the script exited code 0
-( 2) Check that the output is as expected 
+( 2) Check that the output is as expected
 ( 3) Check that no extra files were created
 
 =cut
@@ -219,7 +220,7 @@ Test the alternative modes, with the --secondary flag
 {
   my ($out, $err) = "";
   my $fn = 'secondary';
-  simple_run_test(runargs        => [[$^X, -S =>'test-script-2','--secondary'],
+  simple_run_test(runargs        => [[PERL, -S =>'test-script-2','--secondary'],
                                      # Redirect STDIN to force help to
                                      # default columns
                                      '<', \undef, '>', $fn, '2>', \$err],
@@ -238,7 +239,7 @@ Test the alternative modes, with the --secondary flag
 Test that the args_done callback operates
 
 ( 1) Check that the script exited code 0
-( 2) Check that the output is as expected 
+( 2) Check that the output is as expected
 ( 3) Check that no extra files were created
 
 =cut
@@ -246,7 +247,7 @@ Test that the args_done callback operates
 {
   my ($out, $err) = "";
   my $fn = 'args_done';
-  simple_run_test(runargs        => [[$^X, -S =>'test-script-4','--secondary',
+  simple_run_test(runargs        => [[PERL, -S =>'test-script-4','--secondary',
                                       'blibble', 'blobble',],
                                      # Redirect STDIN to force help to
                                      # default columns

@@ -380,7 +380,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.93';
+our $VERSION = '0.94';
 
 # -------------------------------------
 # CLASS CONSTRUCTION

@@ -15,6 +15,7 @@ use Test                  1.13 qw( ok plan );
 
 use lib $Bin;
 use test  qw( DATA_DIR
+              PERL
               evcheck );
 use test2 qw( simple_run_test );
 
@@ -66,7 +67,7 @@ OUT: blibble.bar
 OUT: blibble.foo
 END
 
-simple_run_test(runargs => [[$^X, -S => 'test-script-3', $test_file],
+simple_run_test(runargs => [[PERL, -S => 'test-script-3', $test_file],
                             '>', \$out, '2>', \$err],
                 name    => 'main',
                 errref  => \$err);
