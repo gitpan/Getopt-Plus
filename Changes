@@ -1,5 +1,10 @@
 Revision history for Getopt::Plus. 
 
+0.96  Sat Feb  5  4:50PM GMT 2005
+	- Don't allow optional args for single-letter options
+	- Add ERR_INTERNAL, ERR_INPUT
+	- Document Error Codes
+
 0.95  Sun Apr 20  2:23PM GMT 2003
 	- Add human_file_size function
 	- Document commify, ftime, check_run, run, find_exec

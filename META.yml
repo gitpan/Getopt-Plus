@@ -1,0 +1,15 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Getopt-Plus
+version:      0.95
+version_from: 
+installdirs:  site
+requires:
+    Class::MethodMaker:            1.04
+    IPC::Run:                      0.44
+    List::Util:                    1.06
+    Log::Info:                     1.13
+    Pod::Usage:                    1.12
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

@@ -193,6 +193,7 @@ Run the test script, with the --help option
 {
   my ($out, $err) = "";
   my $fn = 'help';
+  local $ENV{COLUMNS} = 80;
   simple_run_test(runargs        => [[PERL, -S => 'test-script-2', '--help'],
                                      # Redirect STDIN to force help to
                                      # default columns

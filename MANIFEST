@@ -3,7 +3,6 @@ MANIFEST
 MANIFEST.SKIP
 Makefile.PL
 README
-configure
 t/test.pm
 make.pm
 lib/Getopt/Plus.pm
@@ -50,3 +49,4 @@ t/bin/test-script-4
 testref/check/args_done
 testref/test-script/longhelp.2.2
 testref/test-script/man.2.2
+META.yml

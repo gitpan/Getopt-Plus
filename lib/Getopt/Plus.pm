@@ -37,15 +37,22 @@ use base qw( Exporter );
 our @EXPORT_OK   = qw( OPT_FLOAT OPT_INT OPT_STRING OPT_BOOLEAN OPT_FDLEVEL
                        ERR_OK ERR_ABNORMAL ERR_UTILITY ERR_USAGE
                        ERR_IO_READ ERR_IO_WRITE
-                       ERR_RDBMS_READ ERR_RDBMS_WRITE ERR_EXTERNAL ERR_UNKNOWN
+                       ERR_DB_READ ERR_DB_WRITE
+                       ERR_RDBMS_READ ERR_RDBMS_WRITE
+                       ERR_EXTERNAL ERR_INTERNAL ERR_INPUT
+                       ERR_UNKNOWN
                        find_exec ftime commify human_file_size
                        $PACKAGE $VERSION );
 our %EXPORT_TAGS = ( opt_types  => [qw/ OPT_FLOAT OPT_INT OPT_STRING
                                         OPT_BOOLEAN OPT_FDLEVEL /],
-                     exit_codes => [qw/ ERR_OK ERR_ABNORMAL ERR_UTILITY
+                     exit_codes => [qw/ ERR_OK
+                                        ERR_ABNORMAL ERR_UTILITY
                                         ERR_USAGE
-                                        ERR_IO_READ ERR_IO_WRITE ERR_RDBMS_READ
-                                        ERR_RDBMS_WRITE ERR_EXTERNAL
+                                        ERR_IO_READ ERR_IO_WRITE
+                                        ERR_DB_READ ERR_DB_WRITE
+                                        ERR_RDBMS_READ ERR_RDBMS_WRITE
+                                        ERR_EXTERNAL ERR_INTERNAL
+                                        ERR_INPUT
                                         ERR_UNKNOWN /],
                     );
 
@@ -69,7 +76,7 @@ use Pod::Select                 1.13 qw( podselect );
 use Pod::Text                   2.08 qw( );
 use Pod::Usage                  1.12 qw( pod2usage );
 use Text::Tabs             98.112801 qw( expand );
-use Text::Wrap             2001.0131 qw( fill wrap );
+use Text::Wrap             2001.0131 qw( wrap );
 
 my ($ReadKeyPresent);
 BEGIN {
@@ -165,7 +172,7 @@ use constant STANDARD_OPTIONS =>
     type      => OPT_FDLEVEL,
     arg_reqd  => 0,
     mandatory => 0,
-    summary   => 'Output informational messages',
+    summary   => 'output informational messages',
     desc      => <<'END',
 Enable informational messages about choices made, etc. to stderr.
 This option may be invoked multiple times to increase the level of
@@ -183,7 +190,7 @@ END
     type      => OPT_FDLEVEL,
     arg_reqd  => 0,
     mandatory => 0,
-    summary   => 'Output progress messages',
+    summary   => 'output progress messages',
     desc      => <<'END',
 Enable regular messages to inform the user of progress made. These may be in
 simple text form, or where appropriate, progress bars or the like may be used
@@ -202,7 +209,7 @@ END
     type      => OPT_FDLEVEL,
     arg_reqd  => 0,
     mandatory => 0,
-    summary   => 'Output statistical information',
+    summary   => 'output statistical information',
     desc      => 'Enable statistical information to be output to the user.',
     default   => 0,
     linkage   => sub {
@@ -218,7 +225,7 @@ END
      type      => OPT_STRING,
      arg_reqd  => 0,
      mandatory => 0,
-     summary   => 'Produce summary help on stdout',
+     summary   => 'produce summary help on stdout',
      desc      => <<'END',
 Print a brief help message and exit.  If an argument is given, then it is
 treated as an option name, and the description for that option is given (a la
@@ -232,7 +239,7 @@ END
      names     => [qw/ longhelp /],
      arg_reqd  => 0,
      mandatory => 0,
-     summary   => 'Produce long help on stdout',
+     summary   => 'produce long help on stdout',
      desc      => 'Print a longer help message and exit.',
      default   => 0,
      linkage   => sub { $_[0]->dump_longhelp },
@@ -242,7 +249,7 @@ END
      names     => [qw/ man /],
      arg_reqd  => 0,
      mandatory => 0,
-     summary   => 'Produce full man page on stdout',
+     summary   => 'produce full man page on stdout',
      desc      => 'Print the manual page and exit.',
      default   => 0,
      linkage   => sub { $_[0]->dump_man },
@@ -252,7 +259,7 @@ END
      names     => [qw/ version /],
      arg_reqd  => 0,
      mandatory => 0,
-     summary   => 'Produce full version on stdout',
+     summary   => 'produce full version on stdout',
      desc      => <<'END',
 Print the version info (as for C<briefversion>) and the copyright notice,
 and exit.
@@ -262,20 +269,10 @@ END
     },
 
     {
-     names     => [qw/ copyright /],
-     arg_reqd  => 0,
-     mandatory => 0,
-     summary   => 'Produce full copyright on stdout',
-     desc      => 'Print the copyright notice, and exit.',
-     default   => 0,
-     linkage   => sub { $_[0]->dump_copyright },
-    },
-
-    {
      names     => [qw/ V briefversion /],
      arg_reqd  => 0,
      mandatory => 0,
-     summary   => 'Produce brief version on stdout',
+     summary   => 'produce brief version on stdout',
      desc      => <<'END',
 Print the version number (of the source package), in the form
 
@@ -287,18 +284,30 @@ END
      linkage   => sub { $_[0]->dump_briefversion },
     },
 
+    {
+     names     => [qw/ copyright /],
+     arg_reqd  => 0,
+     mandatory => 0,
+     summary   => 'produce full copyright on stdout',
+     desc      => 'Print the copyright notice, and exit.',
+     default   => 0,
+     linkage   => sub { $_[0]->dump_copyright },
+     arg_trigger => 1,
+    },
+
     undef,
 
     {
      names     => [qw/ dry-run /],
      arg_reqd  => 0,
      mandatory => 0,
-     summary   => "Don't really do anything",
+     summary   => "don't really do anything",
      desc      => <<'END',
 Do not write any files (other than temporary files), nor make any changes to
 any RDBMS (other than disposable ones).
 END
      default   => 0,
+     arg_trigger => 1,
     },
 
    {
@@ -313,6 +322,17 @@ END
       my ($rse, $opt, $value) = @_;
       Log::Info::enable_file_channel(CHAN_DEBUG, $value, 'debug', 'd-out');
     }
+   },
+
+   {
+    names     => [qw/ dump-pod /],
+    type      => OPT_FDLEVEL,
+    arg_reqd  => 0,
+    mandatory => 0,
+    summary   => 'dump generated pod',
+    default   => 0,
+    linkage   => sub { $_[0]->dump_as_pod(1); $_[0]->dump_man },
+    hidden    => 1,
    },
   ];
 
@@ -380,22 +400,120 @@ BEGIN {
   DEFAULT_ERR->[255] = 'Unknown Error';
 }
 
+=head2 Error Codes
+
+=over 4
+
+=cut
+
+=item ERR_OK
+
+Not an error at all.  Hence the name.
+
+=cut
+
 use constant ERR_OK             => 0;
+
+=item ERR_ABNORMAL
+
+Not so much an error as a non-erroneous circumstance worthy of signalling,
+e.g., grep finding no matches.
+
+=cut
+
 use constant ERR_ABNORMAL       => 1;
+
+=item ERR_UTILITY
+
+Again, not really an error, rather a utility function being called --- e.g.,
+the --help or --version.  This gets an error code because it is almost
+certainly an error to call from batch scripts.
+
+=cut
+
 use constant ERR_UTILITY        => 2;
+
+=item ERR_USAGE
+
+The program was called wrong.
+
+=cut
+
 use constant ERR_USAGE          => 3;
+
+=item ERR_IO_READ
+
+Some problem reading from disk or network (system read).
+
+=cut
+
 use constant ERR_IO_READ        => 4;
+
+=item ERR_IO_WRITE
+
+Some problem writing to disk or network (system write).
+
+=cut
+
 use constant ERR_IO_WRITE       => 5;
+
+=item ERR_DB_READ
+
+Some problem reading from db or similar (application read).
+
+=cut
+
 use constant ERR_RDBMS_READ     => 6;
+use constant ERR_DB_READ        => 6;
+
+=item ERR_DB_WRITE
+
+Some problem writing to db or similar (application write).
+
+=cut
+
 use constant ERR_RDBMS_WRITE    => 7;
+use constant ERR_DB_WRITE       => 7;
+
+=item ERR_EXTERNAL
+
+Some problem with an external application.
+
+=cut
+
 use constant ERR_EXTERNAL       => 8;
+
+=item ERR_INTERNAL
+
+An internal logic error (the sort of thing that I<should> never happen, but
+has been caught by an internal assertion or sanity check).
+
+=cut
+
+use constant ERR_INTERNAL       => 9;
+
+=item ERR_INPUT
+
+Some problem with the input file (which was read fine, but contains bad data).
+
+=cut
+
+use constant ERR_INPUT          => 10;
+
+=item ERR_UNKNOWN
+
+=cut
+
 use constant ERR_UNKNOWN        => 255;
 
+=back
+
+=cut
 
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.95';
+our $VERSION = '0.96';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -410,6 +528,8 @@ our $VERSION = '0.95';
 Z<>
 
 =cut
+
+my $DEFAULT_VERSION = undef;
 
 # -------------------------------------
 # CLASS HIGHER-LEVEL FUNCTIONS
@@ -430,6 +550,8 @@ Z<>
 Z<>
 
 =cut
+
+sub VERSION { $DEFAULT_VERSION = $_[1]; $_[0]->SUPER::VERSION($_[1]) }
 
 # -------------------------------------
 # CLASS UTILITY FUNCTIONS
@@ -483,7 +605,10 @@ sub find_exec {
 sub columns {
   my ($outfh) = @_;
 
-  my $columns = 80;
+  return $ENV{COLUMNS}
+    if exists $ENV{COLUMNS} and $ENV{COLUMNS} =~ /^\d+$/;
+
+  my $columns = 72;
 
   if ( defined $outfh ) {
     if ( -t $outfh ) {
@@ -958,16 +1083,20 @@ to detect incorrect options combinations, errors in the environment.  Any
 return value is ignored; if an error is detected, call C<< $rse->die >>, and
 the program will terminate appropriately before any real work is done.
 
+This differs from C<initialize> in that it runs in I<every> mode.
+
 Default: an empty coderef.
 
 =item initialize
 
 B<Optional> If provided, a coderef that is executed prior to any call of
 C<main>.  It is passed a single argument, that this is RSE instance.  This is
-intended to perform any initialization tasks common to all arguments.  the
-environment.  Any return value is ignored; if an error is detected, call C<<
-$rse->die >>, and the program will terminate appropriately before any real
-work is done.
+intended to perform any initialization tasks common to all arguments.  Any
+return value is ignored; if an error is detected, call C<< $rse->die >>, and
+the program will terminate appropriately before any real work is done.
+
+This differs from C<check> in that it only runs in B<normal> mode, so in other
+modes (e.g., requisite checking other verification modes), this is not run.
 
 Default: an empty coderef.
 
@@ -980,11 +1109,14 @@ up resources allocated by C<initialize>.  Any return value is ignored; if an
 error is detected, call C<< $rse->die >>, and the program will terminate
 appropriately.
 
+This is analogous to initialize.
+
 Default: an empty coderef.
 
 =item end
 
-B<Optional> This is very much like C<finalize>, but is run in all modes.
+B<Optional> This is very much like C<finalize>, but is run in all modes, even
+if one of these previous stages failed.
 
 Default: an empty coderef.
 
@@ -1049,37 +1181,21 @@ sub init {
   my (%args) = @_;
 
   # Initialize config with defaults
-  my %config = ( options         => [],
-                 arg_ary         => 0,
+  my %config = ( arg_ary         => 0,
                  check           => sub {},
                  initialize      => sub {},
                  finalize        => sub {},
                  end             => sub {},
-                 copyright       => 'This program has no copyright',
+                 interface       => $DEFAULT_VERSION,
                );
 
-  # Copy in config from arguments
-  $config{$_} = delete $args{$_}
-    for grep(exists $args{$_},
-             qw( scriptname scriptsumm copyright c_years
-                 options argtype arg_ary envtext
-                 output_suffix main initialize mode_info
-                 package version finalize end check req_check ));
-
   # Check for mandatory args
-  my @missing = grep ! exists $config{$_}, qw( main scriptname );
+  my @missing = grep ! exists $args{$_}, qw( main scriptname );
   croak sprintf("Manadatory arguments missing: %s\n", join(', ', @missing))
     if @missing;
 
-  # Check for consistency in arg_type & arg_ary
-  croak
-    sprintf("Cannot specify a possibly positive arg_ary (%s) without an " .
-            "argtype\n", $config{arg_ary})
-    if ! defined $config{argtype} and
-       ( $config{arg_ary} !~ /^\d+$/ or $config{arg_ary} != 0 );
-
   # Check validity of options, c_years arguments
-  $config{options} ||= [];
+  $config{options} = delete $args{options} || [];
 
   croak sprintf("'$_' must be an arrayref (if defined)")
     for grep(exists $config{$_}                    &&
@@ -1087,11 +1203,28 @@ sub init {
              ! UNIVERSAL::isa($config{$_}, 'ARRAY'),
              qw( options c_years ));
 
-  # Handle dry-run option
-  push(@{$config{options}}, undef,
-       grep(! defined $_ || $args{dry_run} ||
-              ! grep($_ eq 'dry-run', @{$_->{names}}),
-            @{STANDARD_OPTIONS()}));
+  for my $opt (undef, @{STANDARD_OPTIONS()}) {
+    my $name;
+    ($name = $opt->{names}->[0]) =~ tr/-/_/
+      if defined $opt;
+    push @{$config{options}}, $opt
+      if  ! defined $opt || ! exists $opt->{arg_trigger} || $args{$name};
+  }
+  
+  # Copy in config from arguments
+  $config{$_} = delete $args{$_}
+    for grep(exists $args{$_},
+             qw( scriptname scriptsumm copyright c_years
+                 argtype arg_ary envtext
+                 output_suffix main initialize mode_info
+                 package version finalize end check req_check ));
+
+  # Check for consistency in arg_type & arg_ary
+  croak
+    sprintf("Cannot specify a possibly positive arg_ary (%s) without an " .
+            "argtype\n", $config{arg_ary})
+    if ! defined $config{argtype} and
+       ( $config{arg_ary} !~ /^\d+$/ or $config{arg_ary} != 0 );
 
   if ( exists $args{dry_run} ) {
     if ( $args{dry_run} eq 'hidden' ) {
@@ -1105,7 +1238,9 @@ sub init {
 
   # Check copyright & c_years
   croak "c_years must be provided with __CYEARS__ in copyright text"
-    if $config{copyright} =~ /__CYEARS__/ and ! defined $config{c_years};
+    if ( exists $config{copyright}           and 
+         $config{copyright} =~ /__CYEARS__/  and 
+         ! defined $config{c_years} );
 
   croak sprintf("'c_years' must have some (sensible) values")
     unless grep(($_ >= 1990 && $_ <= 1900+(localtime)[5]),
@@ -1126,8 +1261,7 @@ sub init {
   my %optkeys = map({; $_ => 1 }
                     map keys %$_, grep defined $_, @{$config{options}});
   delete $optkeys{$_}
-    for qw( names type arg_reqd mandatory summary desc default linkage hidden
-          );
+    for qw( names type arg_reqd mandatory summary desc default linkage hidden arg_trigger );
   croak sprintf("Options arg(s) not recognized: %s\n",join(', ',keys %optkeys))
     if keys %optkeys;
 
@@ -1224,9 +1358,10 @@ main to prevent further processing (without signalling an error).
 Class::MethodMaker->import
   (
    get_set => [qw/ scriptname scriptsumm tempfh outfh argtype arg_ary
-                   envtext exit_code package version copyright
-                   main initialize finalize
-                   mode /],
+                   envtext exit_code package version copyright interface
+                   main initialize finalize dump_as_pod
+                   mode /
+              ],
    list    => [qw/ options diag c_years output_suffix /],
    hash    => [qw/ mode_info /],
    boolean => [qw/ args_done
@@ -1374,11 +1509,16 @@ sub _dump_pod {
   seek $fh, 0, SEEK_SET;
   $self->_make_pod($fh);
   seek $fh, 0, SEEK_SET;
-  pod2usage( -exitval => 'NOEXIT',
-             -verbose => $verbose,
-             -output  => $outfh,
-             -input => $fh,
-           );
+  if ( $self->dump_as_pod ) {
+    print $_
+      while <$fh>;
+  } else {
+    pod2usage( -exitval => 'NOEXIT',
+               -verbose => $verbose,
+               -output  => $outfh,
+               -input => $fh,
+             );
+  }
   $self->exit_code($exitval);
 }
 
@@ -1401,11 +1541,11 @@ sub _dump_version_info {
       if defined $version and length $version;
     print $outfh "\n";
     print $outfh "\n"
-      if $copyright;
+      if $copyright and defined $self->_copyright;
   }
 
   print $outfh $self->_copyright
-    if $copyright;
+    if $copyright and defined $self->_copyright;
 
   $self->exit_code(ERR_UTILITY);
 }
@@ -1415,7 +1555,8 @@ sub _copyright {
 
   local $" = ', ';
   my @cyears = $self->c_years;
-  (my $copyright = $self->copyright) =~ s/__CYEARS__/@cyears/;
+  return unless defined(my $copyright = $self->copyright);
+  $copyright =~ s/__CYEARS__/@cyears/;
   $copyright .= "\n"
     unless substr($copyright, -1, 1) eq "\n";
   return $copyright;
@@ -1447,9 +1588,38 @@ sub _opt_spec {
   my (@spec, %config, %mandatory);
   my %linkage_keys = map {;$_ => 1} (defined $linkages ? keys %$linkages : ());
 
-  for my $opt (grep defined, $self->options) {
+  my @options;
+  for my $opt ($self->options) {
+    $opt->{fullname} = join '|', sort { length($b) <=> length($a) } @{$opt->{names}}
+      if keys %$opt;
+    # Split out single-char options with optional arguments;
+    # the single-char version takes *no* argument
+    if ( exists $opt->{type}
+         and
+         ! ( exists $opt->{arg_reqd} and $opt->{arg_reqd} )
+         and
+         grep length($_) == 1, @{$opt->{names}}
+       ) {
+      my %opt1 = %$opt;
+      my %opt2 = %$opt;
+      $opt1{fullname} = $opt2{fullname} = join '|', sort { length($b) <=> length($a) } @{$opt->{names}};
+      $opt2{names} = [grep length($_) == 1, @{$opt->{names}} ];
+      $opt1{names} = [grep length($_) >  1, @{$opt->{names}} ];
+      die("No multi-char options named for opt arg option ", 
+          join(',', @{$opt2{names}}), "\n")
+        unless @{$opt->{names}};
+      delete $opt2{type};
+      push @options, \%opt2;
+      push @options, \%opt1;
+    } else {
+      push @options, $opt
+        if defined $opt and keys %$opt;
+    }
+  }
+
+  for my $opt ( @options) {
     my @names = sort { length($b) <=> length($a) } @{$opt->{names}};
-    my $spec = join'|', @names;
+    my $spec = join '|', @names;
     my $name = $spec;
 
     my $linkage;
@@ -1494,16 +1664,18 @@ sub _opt_spec {
 
     croak "Cannot have a default value with a mandatory option: $name\n"
       if $opt->{mandatory} and defined $opt->{default};
-    $mandatory{$name} = $target
+
+    $mandatory{$opt->{fullname}} = $target
       if $opt->{mandatory};
   }
 
   carp(sprintf("Linkage names do not correspond to known options: %s\n",
                join(',', keys %linkage_keys)))
     if keys %linkage_keys;
-
   return \@spec, \%config, \%mandatory;
 }
+
+# -------------------------------------
 
 # Don't set linkages for standard options (unless you want trouble!)
 # Perhaps we should have a standard place for those so they can always be
@@ -1519,6 +1691,7 @@ sub get_options {
     $linkages->{$_} = sub { $self->$opt_name($_[2]) }
       unless $_ eq 'dry-run' && ! $self->_dry_run_known;
   }
+
   my ($spec, $config, $mandatory) = $self->_opt_spec($linkages);
 
   my $parser =
@@ -1532,8 +1705,7 @@ sub get_options {
 
   unless ( $self->exit_code ) {
     my @missing = grep ! defined ${$mandatory->{$_}}, keys %$mandatory;
-$self->die(ERR_USAGE, sprintf("Mandatory options missing: %s\n", join ', ', @missing))
-
+    $self->die(ERR_USAGE, sprintf("Mandatory options missing: %s\n", join ', ', @missing))
       if @missing;
   }
 }
@@ -1637,7 +1809,12 @@ sub run {
     # frigging @ARGV itself
     eval {
       # Protect from early death so, e.g., C<end> can run
-      $initialize->($self);
+      if ( defined $self->interface && $self->interface >= 1 ) {
+        my ($argv) = $initialize->($self, \@ARGV);
+        @ARGV = @$argv;
+      } else {
+        $initialize->($self);
+      }
     }; if ( $@ ) {
       # Log it because die itself is caught.
       Log(CHAN_INFO, LOG_ERR, $@);
@@ -2132,21 +2309,17 @@ sub _make_pod_opts {
   $col_widths[0] = min(MAX_OPT_WIDTH, $col_widths[0]);
 
   # Inter-column spacing
-  # You might think that you want @col_widths-1, since they are in-between
-  # columns, but we want space at the front as well so that the options text
-  # is visually distinguished from the rest.
-  my $space = max(2, int(($columns - sum @col_widths) / @col_widths));
+  # Offset by two for a initial 2 spaces to visually distinguish options
+  my $space = max(2, int(($columns - 2 - sum @col_widths) / (@col_widths-1)));
 
-  my $format = join ('',
+  my $format = join ('', '  ',
                      join((' ' x $space),
-                          '',
                           map ("%-${_}s", @col_widths[0..$#col_widths-1])),
                      (' ' x $space)
                     );
 
   # Indent Meaning Field for wrapping
   (my $indent = $format) =~ s/%-?(\d+)s/' ' x $1/eg;
-
   for (@summary) {
     if ( ! defined $_ ) {
       print $fh ("\n");
@@ -2180,7 +2353,11 @@ sub _make_pod_opts {
       if ( $last eq '' ) {
         @lines = $init;
       } else {
-        @lines = split/\n/, expand(wrap($init, $indent, $last));
+        eval {
+          @lines = split/\n/, expand(wrap($init, $indent, $last));
+        }; if ( $@ ) {
+          die "Wrap failed: $@\n";
+        }
       }
       for my $lineno ( 1..$#{$_->[0]} ) {
         my $opttext = (' ' x ($space + 2)) . $_->[0]->[$lineno];
@@ -2310,7 +2487,7 @@ Martyn J. Pearce C<fluffy@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2002, 2003 Martyn J. Pearce.
+Copyright (c) 2002, 2003, 2004, 2005 Martyn J. Pearce.
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

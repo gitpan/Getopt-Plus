@@ -24,7 +24,7 @@ use test2 qw( runcheck );
 
 BEGIN {
   # 1 for compilation test,
-  plan tests  => 270,
+  plan tests  => 262,
        todo   => [],
 }
 
@@ -63,6 +63,7 @@ Invoke test-script with the C<help>, C<longhelp>, C<man> options in turn
 
 for my $opt (qw( help longhelp man )) {
   my ($out, $err) = ('') x 2;
+  local $ENV{COLUMNS}=81;
   ok(runcheck([[PERL, '-S', 'test-script', "--$opt"],
                '<', \undef, '>', \$out, '2>', \$err],
               "test-script --$opt",
@@ -169,7 +170,7 @@ permutation of C<--arg1=bob>, C<--arg2=baz> (on/off).
 
 # -------------------------------------
 
-=head2 Tests 29--204: fd/level
+=head2 Tests 29--169: fd/level
 
 Check that the fd/level-options (verbose, progress, stats, debug) handle
 combinations of fd, level, and filename correctly.
@@ -201,7 +202,7 @@ sub checkit {
   my $mode = (stat ME)[2] & 07777;
 
   my %opts = (
-              'verbose|v' => [sprintf("%s: %d\n",    ME, $size),
+              'verbose' =>   [sprintf("%s: %d\n",    ME, $size),
                               sprintf("%s: 0%04o\n", ME, $mode)],
               'progress'  =>
                 [sprintf("[1/1 Arguments Done] Done Argument %s\n", ME)],
@@ -246,7 +247,7 @@ sub checkit {
 
 # -------------------------------------
 
-=head2 Tests 205--210: dry-run
+=head2 Tests 170--175: dry-run
 
 Invoke test-script with & without the dry-run option.  Check that
 
@@ -277,7 +278,7 @@ Invoke test-script with & without the dry-run option.  Check that
 
 # -------------------------------------
 
-=head2 Tests 211-249: help options
+=head2 Tests 175-214: help options
 
 Invoke the --help switch with each option name.  Check that the output is as
 expected.
@@ -298,7 +299,7 @@ for my $opt (qw( V briefversion copyright debug dry-run help longhelp man
 
 # -------------------------------------
 
-=head2 Tests 250-252: bad help option
+=head2 Tests 215-217: bad help option
 
 Invoke the --help switch with option name 'nosuchoption'.  Check that the
 output is as expected.
@@ -318,7 +319,7 @@ output is as expected.
 
 # -------------------------------------
 
-=head2 Tests 253--270: arg linkage (b)
+=head2 Tests 218--235: arg linkage (b)
 
 Test the linkage of b/bob in test-script; call test-script with each
 of -b, --bob, --nobob (and --bob --nobob, --nobob -b)
