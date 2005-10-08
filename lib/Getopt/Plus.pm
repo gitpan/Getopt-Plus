@@ -181,7 +181,12 @@ END
     default   => 0,
     linkage   => sub {
       my ($rse, $opt, $value) = @_;
-      Log::Info::enable_file_channel(CHAN_INFO, $value, 'verbose',SINK_STDERR);
+      if ( length($opt) eq 1 ) {
+        $value = 1+$rse->verbose;
+      }
+      my $verboseness =
+        Log::Info::enable_file_channel(CHAN_INFO, $value, 'verbose',SINK_STDERR);
+      $rse->verbose($verboseness);
     }
    },
 
@@ -513,7 +518,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.96';
+our $VERSION = '0.97';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -551,7 +556,7 @@ Z<>
 
 =cut
 
-sub VERSION { $DEFAULT_VERSION = $_[1]; $_[0]->SUPER::VERSION($_[1]) }
+sub VERSION { $DEFAULT_VERSION = $_[1]; $_[0]->SUPER::VERSION(@_>2?$_[1]:()) }
 
 # -------------------------------------
 # CLASS UTILITY FUNCTIONS
@@ -1187,6 +1192,7 @@ sub init {
                  finalize        => sub {},
                  end             => sub {},
                  interface       => $DEFAULT_VERSION,
+                 verbose         => 0,
                );
 
   # Check for mandatory args
@@ -1359,7 +1365,7 @@ Class::MethodMaker->import
   (
    get_set => [qw/ scriptname scriptsumm tempfh outfh argtype arg_ary
                    envtext exit_code package version copyright interface
-                   main initialize finalize dump_as_pod
+                   main initialize finalize dump_as_pod verbose
                    mode /
               ],
    list    => [qw/ options diag c_years output_suffix /],
@@ -1809,7 +1815,7 @@ sub run {
     # frigging @ARGV itself
     eval {
       # Protect from early death so, e.g., C<end> can run
-      if ( defined $self->interface && $self->interface >= 1 ) {
+      if ( defined $self->interface && $self->interface >= 0.96 ) {
         my ($argv) = $initialize->($self, \@ARGV);
         @ARGV = @$argv;
       } else {
