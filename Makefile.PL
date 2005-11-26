@@ -1,37 +1,28 @@
-use 5.005_62;
+require 5.005_62;
 use strict;
 
-use File::Spec::Functions qw( catfile );
+use ExtUtils::MakeMaker;
 
-use constant MOD_REQS =>
-  [ { name    => 'Pod::Usage',
-      version => '1.12', },
-
-    { name    => 'Class::MethodMaker',
-      package => 'Class-MethodMaker',
-      version => '1.04', },
-
-    { name    => 'Log::Info',
-      package => 'Log-Info',
-      version => '1.13', },
-
-    { name    => 'List::Util',
-      package => 'Scalar-List-Utils',
-      version => '1.06', },
-
-    # Used by test.pm
-    { name    => 'IPC::Run',
-      package => 'IPC-Run',
-      version => '0.44', },
-  ];
-
-use constant EXEC_REQS => [ ];
-
-use constant NAME         => 'Getopt-Plus';
-use constant VERSION_FROM => catfile (qw( lib Getopt Plus.pm ));
-use constant AUTHOR       => 'Martyn J. Pearce fluffy@cpan.org';
-use constant ABSTRACT     => 'Getopt wrapper with standard options, help system and more';
-
-use FindBin 1.42 qw( $Bin );
-use lib $Bin;
-use make;
+WriteMakefile (
+  NAME         => 'Getopt-Plus',
+  VERSION      => '0.98',
+  AUTHOR       => 'Martyn J. Pearce ',
+  ABSTRACT     => 'Options wrapper with standard options, help system and more',
+  PREREQ_PM    => +{ 
+                     'List::Util' => '1.06',
+                     'Class::MethodMaker' => '1.04',
+                     'IPC::Run' => '0.44',
+                     'Log::Info' => '1.13',
+                     'Pod::Usage' => '1.12',
+                     'IPC::Run' => '0.44',},
+  EXE_FILES    => [qw(  )],
+  # Need this to stop Makefile treating Build.PL as a producer of Build as a
+  # target for 'all'.
+  PL_FILES     => +{},
+  clean        => +{ FILES => join(' ', qw( Build _build )) },
+  realclean    => +{ FILES => join(' ', qw( Build.PL META.yml
+                                            Makefile.PL
+                                            SIGNATURE
+                                            README INSTALL
+                                            configure make-pm )) },
+);

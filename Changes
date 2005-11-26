@@ -1,6 +1,7 @@
 Revision history for Getopt::Plus. 
 
-0.97  Sat Feb  5  5:32PM GMT 2005
+0.97
+	- correct undefined warning on ->VERSION & incorrect interface check
 	- enable multiple -v flags to accumulate
 
 0.96  Sat Feb  5  4:50PM GMT 2005

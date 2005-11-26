@@ -60,7 +60,7 @@ our %EXPORT_TAGS = ( opt_types  => [qw/ OPT_FLOAT OPT_INT OPT_STRING
 
 use Carp                             qw( carp croak );
 use Class::MethodMaker          1.04 qw( );
-use Data::Dumper               2.102 qw( );
+use Data::Dumper                     qw( );
 use Env                              qw( @PATH );
 use Fatal                       1.02 qw( :void close open seek sysopen );
 use Fcntl                       1.03 qw( :seek );
@@ -518,7 +518,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.97';
+our $VERSION = '0.98';
 
 # -------------------------------------
 # CLASS CONSTRUCTION

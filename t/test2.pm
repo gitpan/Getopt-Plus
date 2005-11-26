@@ -87,7 +87,7 @@ The following symbols are exported upon request:
 # Utility -----------------------------
 
 use Carp                          qw( carp croak );
-use Data::Dumper            2.101 qw( );
+use Data::Dumper                  qw( );
 use Fatal                    1.02 qw( close open seek sysopen unlink );
 use Fcntl                    1.03 qw( :DEFAULT );
 use File::Basename            2.6 qw( basename );

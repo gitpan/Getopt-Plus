@@ -1,31 +1,29 @@
-Module Getopt::Plus:
-
-    Getopt wrapper with standard options, help system and more
+Module Getopt-Plus (0.98):
 
 Description:
 
     This package provides a way to set up executables with standard options
     for help (--help, --longhelp, --man), logging (--verbose, --debug, and
-    more), keeping the relevant documentation in one place instead of spreading
-    it liberally across your source file(s).  It provides a common behaviour
-    for your executables with minimum effort.
+    more), keeping the relevant documentation in one place instead of
+    spreading it liberally across your source file(s).	It provides a
+    common behaviour for your executables with minimum effort.
 
 Modules & Classes Provided:
 
-    Getopt::Plus - Options wrapper with standard options, help system and more
-
-Executables Provided:
+    Getopt::Plus - Options wrapper with standard options, help system and
+		   more
 
 Required Packages:
 
-    Class-MethodMaker 1.04
-    Log-Info          1.13
-    IPC-Run           0.44
-    Scalar-List-Utils 1.06
+    Class::MethodMaker	1.04
+    IPC::Run		0.44
+    List::Util		1.06
+    Log::Info		1.13
+    Pod::Usage		1.12
 
-Required Executables:
+Required Perl Version:
 
-    perl 5.6.1
+    5.005_62
 
 Package Maintainer:
 
@@ -33,8 +31,8 @@ Package Maintainer:
 
 Copyright:
 
-    Copyright 2002, 2003, 2004, 2005 Martyn J. Pearce.  This program is free
-    software; you can redistribute it and/or modify it under the same terms as
-    Perl itself.
+    Copyright 2002, 2003 Martyn J. Pearce  This program is free software;
+    you can redistribute it and/or modify it under the same terms as Perl
+    itself.
 
-5th Feb, 2005
+26th November, 2005
