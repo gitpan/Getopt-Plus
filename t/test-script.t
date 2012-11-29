@@ -8,25 +8,21 @@ This package tests the options writing utility of Getopt::Plus
 
 =cut
 
+use Carp                       qw( cluck );
 use Env                        qw( @PATH );
 use Fatal                 1.02 qw( open close );
 use File::Spec::Functions  1.1 qw( catdir catfile rel2abs splitpath);
 use FindBin               1.42 qw( $Bin );
-use Test                  1.13 qw( ok plan );
+use IO::All                    qw( io );
+use Test::Most                 tests => 114;
 
 use constant ME => rel2abs $0;
 
 use lib $Bin;
 use test  qw( DATA_DIR REF_DIR
               PERL
-              compare evcheck tmpnam );
+              evcheck tmpnam );
 use test2 qw( runcheck );
-
-BEGIN {
-  # 1 for compilation test,
-  plan tests  => 262,
-       todo   => [],
-}
 
 sub read_file {
   my ($fn) = @_;
@@ -35,6 +31,16 @@ sub read_file {
   my $contents = <$fh>;
   close $fh;
   return $contents;
+}
+
+sub compare {
+  my ($fn1, $fn2) = @_;
+  cluck "no such file: $_\n"
+    for grep !-e, $fn1, $fn2;
+  my @got    = io($fn1)->slurp;
+  my @expect = io($fn2)->slurp;
+
+  is_deeply \@got, \@expect, "compare $fn1 with $fn2";
 }
 
 # ----------------------------------------------------------------------------
@@ -48,7 +54,7 @@ successfully.
 
 unshift @PATH, catdir($Bin, 'bin');
 
-ok 1, 1, 'compilation';
+ok 1, 'compilation';
 
 # -------------------------------------
 
@@ -69,17 +75,17 @@ for my $opt (qw( help longhelp man )) {
               "test-script --$opt",
               \$err,
               2),
-     1,                                                 "help options ($opt)");
+                                                         "help options ($opt)");
 
   my $tmpnam = tmpnam;
   open my $tmpfh, '>', $tmpnam;
   local $\ = undef;
   print $tmpfh $out;
   close $tmpfh;
-  
+
   my $comparison = catfile(REF_DIR, 'test-script', $opt);
   $comparison = "$comparison.2.2"
-    if $Pod::Text::VERSION >= 2.2 and -e "$comparison.2.2"; 
+    if $Pod::Text::VERSION >= 2.2 and -e "$comparison.2.2";
   ok compare($tmpnam, $comparison);
 }
 
@@ -99,8 +105,7 @@ Invoke test-script with the C<--weird> option.
                '<', \undef, '>', \$out, '2>', \$err],
               'exit code assignment',
               \$err,
-              254),
-     1,                                                'exit code assignment');
+              254),                                     'exit code assignment');
 }
 
 # -------------------------------------
@@ -123,8 +128,7 @@ for my $opt (qw( copyright version briefversion V )) {
                '<', \undef, '>', \$out, '2>', \$err],
               "test-script --$opt",
               \$err,
-              2),
-     1,                                                 "help options ($opt)");
+              2),                                        "help options ($opt)");
   my $tmpnam = tmpnam;
   open my $tmpfh, '>', $tmpnam;
   local $\ = undef;
@@ -157,12 +161,12 @@ permutation of C<--arg1=bob>, C<--arg2=baz> (on/off).
                 sprintf("arg linkage (%s)", join(',', keys %$arg)),
                 \$err,
                 3),
-       1,      sprintf("arg linkage (%s) (%2d)", join(',', keys %$arg), $i++));
-    ok($out, join('',
+               sprintf("arg linkage (%s) (%2d)", join(',', keys %$arg), $i++));
+    is($out, join('',
                   map({; uc($_).": $arg->{$_}\n" } sort keys %$arg),
                   "BOB: 1\n"),
                sprintf("arg linkage (%s) (%2d)", join(',', keys %$arg), $i++));
-    ok($err,
+    is($err,
        "At least one arg must be given\n",
                sprintf("arg linkage (%s) (%2d)", join(',', keys %$arg), $i++));
   }
@@ -187,13 +191,13 @@ sub checkit {
                 map(length($_) > 1 ? "--$_" : "-$_", @$opts),
                 ME],
                '<', \undef, '>', \$out, '2>', \$err],
-              $name, \$err), 1,                                  "$name ( 1)");
-  ok $out, "BOB: 1\n$expect_out",                                "$name ( 2)";
-  ok $err, $expect_err,                                          "$name ( 3)";
+              $name, \$err),                                     "$name ( 1)");
+  is $out, "BOB: 1\n$expect_out",                                "$name ( 2)";
+  is $err, $expect_err,                                          "$name ( 3)";
   if ( defined $tmpfn ) {
-    ok read_file($tmpfn), $expect_fn,                            "$name ( 4)";
+    is read_file($tmpfn), $expect_fn,                            "$name ( 4)";
   } else {
-    ok 1, 1,                                                     "$name ( 4)";
+    ok 1   ,                                                     "$name ( 4)";
   }
 }
 
@@ -215,32 +219,7 @@ sub checkit {
     my ($text, $text2) = @{$opts{$opt}};
 
     for my $name (split /\|/, $opt) {
-      checkit(["$name="], '', $text);
-
-      if ( length($name) > 1 ) {
-        checkit(["$name=+1"],        '', $text);
-        checkit(["$name=:1"],       $text, '');
-        checkit(["$name=:2"],       '', $text);
-        checkit(["$name=+1:1"],     $text, '');
-        checkit(["$name=+1:2"],     '', $text);
-        my $tmpfn = tmpnam;
-        checkit(["$name=$tmpfn"],   '', '', $tmpfn, $text);
-        $tmpfn = tmpnam;
-        checkit(["$name=$tmpfn+1"], '', '', $tmpfn, $text);
-      }
-
-      if ( defined $text2 ) {
-        my $alltext = join('', $text, $text2);
-        checkit(["$name=", "$name="], '', $alltext);
-
-        if ( length($name) > 1 ) {
-          checkit(["$name=+2"],       '', $alltext);
-          checkit(["$name=+2:1"],     $alltext, '');
-          checkit(["$name=+2:2"],     '', $alltext);
-          my $tmpfn = tmpnam;
-          checkit(["$name=$tmpfn+2"], '', '', $tmpfn, $alltext);
-        }
-      }
+      checkit(["$name"], '', $text);
     }
   }
 }
@@ -262,18 +241,18 @@ Invoke test-script with & without the dry-run option.  Check that
   # It requires an argument
   ok(runcheck([[PERL, '-S', 'test-script', ME, '--nobob'],
                '<', \undef, '>', \$out, '2>', \$err],
-              '(no) dry-run', \$err), 1,                       'dry-run ( 1)');
-  ok $out, "BOB: 0\n",                                         'dry-run ( 2)';
-  ok $err, '',                                                 'dry-run ( 3)';
+              '(no) dry-run', \$err),                          'dry-run ( 1)');
+  is $out, "BOB: 0\n",                                         'dry-run ( 2)';
+  is $err, '',                                                 'dry-run ( 3)';
 }
 
 {
   my($out, $err) = ('') x 2;
   ok(runcheck([[PERL, '-S', 'test-script', '--dry-run', ME, '--nobob'],
                '<', \undef, '>', \$out, '2>', \$err],
-              'dry-run', \$err), 1,                            'dry-run ( 4)');
-  ok $out, "BOB: 0\nNothing doing\n",                          'dry-run ( 5)';
-  ok $err, '',                                                 'dry-run ( 6)';
+              'dry-run', \$err),                               'dry-run ( 4)');
+  is $out, "BOB: 0\nNothing doing\n",                          'dry-run ( 5)';
+  is $err, '',                                                 'dry-run ( 6)';
 }
 
 # -------------------------------------
@@ -285,16 +264,16 @@ expected.
 
 =cut
 
-for my $opt (qw( V briefversion copyright debug dry-run help longhelp man
+for my $opt (qw( briefversion copyright debug dry-run help longhelp man
                  progress stats v verbose version )) {
   my($out, $err) = ('') x 2;
   my $name = "help options ($opt)";
   my $expect = read_file(catfile REF_DIR, 'test-script', 'littlehelp', $opt);
   ok(runcheck([[PERL, '-S', 'test-script', "--help=$opt"],
                '<', \undef, '>', \$out, '2>', \$err],
-              $name, \$err, 2), 1,                               "$name ( 1)");
-  ok $out, $expect,                                              "$name ( 2)";
-  ok $err, '',                                                   "$name ( 3)";
+              $name, \$err, 2),                                  "$name ( 1)");
+  is $out, $expect,                                              "$name ( 2)";
+  is $err, '',                                                   "$name ( 3)";
 }
 
 # -------------------------------------
@@ -312,9 +291,9 @@ output is as expected.
   my $opt = 'nosuchoption';
   ok(runcheck([[PERL, '-S', 'test-script', "--help=$opt"],
                '<', \undef, '>', \$out, '2>', \$err],
-              $name, \$err, 3), 1,                               "$name ( 1)");
-  ok $out, '',                                                   "$name ( 2)";
-  ok $err, "No such option: nosuchoption\n",                     "$name ( 3)";
+              $name, \$err, 3),                                  "$name ( 1)");
+  is $out, '',                                                   "$name ( 2)";
+  is $err, "No such option: nosuchoption\n",                     "$name ( 3)";
 }
 
 # -------------------------------------
@@ -342,17 +321,17 @@ of -b, --bob, --nobob (and --bob --nobob, --nobob -b)
     my @opts = @$arg;
     ok(runcheck([[PERL, '-S', 'test-script', @opts],
                  '<', \undef, '>', \$out, '2>', \$err],
-                                          sprintf("arg linkage (b) (%s)", 
+                                          sprintf("arg linkage (b) (%s)",
                                                   join(',', @opts)),
                 \$err,
                 3),
-       1,                                 sprintf("arg linkage (b) (%s) (%2d)",
-                                                  join(',', @opts), $i++));
-    ok($out, ($j ? sprintf("BOB: %s\n", (qw(1 1 0 0 1))[$j-1]) : ''),
                                           sprintf("arg linkage (b) (%s) (%2d)",
                                                   join(',', @opts), $i++));
-    ok($err, (@opts ? "At least one arg must be given\n" : 
-                      "Mandatory options missing: bob|b\n"),
+    is($out, ($j ? sprintf("BOB: %s\n", (qw(1 1 0 0 1))[$j-1]) : ''),
+                                          sprintf("arg linkage (b) (%s) (%2d)",
+                                                  join(',', @opts), $i++));
+    like($err, (@opts ? qr/At least one arg must be given\n$/ :
+                        qr/(Mandatory options missing: bob\|b\n)+/),
                                           sprintf("arg linkage (b) (%s) (%2d)",
                                                   join(',', @opts), $i++));
     $j++;

@@ -1,8 +1,11 @@
+Build.PL
 Changes
+INFO.yaml
+INSTALL
 MANIFEST
 MANIFEST.SKIP
-Makefile.PL
-README
+make
+SIGNATURE
 t/test.pm
 make-pm
 lib/Getopt/Plus.pm
@@ -13,7 +16,6 @@ testref/test-script/V
 testref/test-script/briefversion
 testref/test-script/copyright
 testref/test-script/help
-testref/test-script/littlehelp/V
 testref/test-script/littlehelp/briefversion
 testref/test-script/littlehelp/copyright
 testref/test-script/littlehelp/debug

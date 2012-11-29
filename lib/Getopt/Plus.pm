@@ -67,6 +67,7 @@ use Fcntl                       1.03 qw( :seek );
 use File::Basename               2.6 qw( fileparse );
 use File::Spec::Functions        1.1 qw( catfile );
 use File::Temp                  0.12 qw( tempfile );
+use FindBin                          qw( $Script );
 use Getopt::Long                2.25 qw( );
 use IPC::Run                    0.44 qw( harness );
 use List::Util                  1.06 qw( first min max sum );
@@ -169,9 +170,6 @@ use constant STANDARD_OPTIONS =>
   [
    {
     names     => [qw/ v verbose /],
-    type      => OPT_FDLEVEL,
-    arg_reqd  => 0,
-    mandatory => 0,
     summary   => 'output informational messages',
     desc      => <<'END',
 Enable informational messages about choices made, etc. to stderr.
@@ -181,20 +179,15 @@ END
     default   => 0,
     linkage   => sub {
       my ($rse, $opt, $value) = @_;
-      if ( length($opt) eq 1 ) {
-        $value = 1+$rse->verbose;
-      }
+      $value = 1+$rse->verbose;
       my $verboseness =
-        Log::Info::enable_file_channel(CHAN_INFO, $value, 'verbose',SINK_STDERR);
+        Log::Info::enable_file_channel(CHAN_INFO, $value, 'verbose', SINK_STDERR);
       $rse->verbose($verboseness);
     }
    },
 
    {
     names     => [qw/ progress /],
-    type      => OPT_FDLEVEL,
-    arg_reqd  => 0,
-    mandatory => 0,
     summary   => 'output progress messages',
     desc      => <<'END',
 Enable regular messages to inform the user of progress made. These may be in
@@ -211,9 +204,6 @@ END
 
    {
     names     => [qw/ stats /],
-    type      => OPT_FDLEVEL,
-    arg_reqd  => 0,
-    mandatory => 0,
     summary   => 'output statistical information',
     desc      => 'Enable statistical information to be output to the user.',
     default   => 0,
@@ -317,8 +307,6 @@ END
 
    {
     names     => [qw/ debug /],
-    type      => OPT_FDLEVEL,
-    arg_reqd  => 0,
     mandatory => 0,
     summary   => '',
     desc      => 'Enable debugging output.',
@@ -339,7 +327,22 @@ END
     linkage   => sub { $_[0]->dump_as_pod(1); $_[0]->dump_man },
     hidden    => 1,
    },
-  ];
+
+   {
+    names     => [qw/ allmodversions /],
+    summary   => 'dump all versions of included modules',
+    linkage   => sub {
+      for my $modx (sort keys %INC) {
+        next if substr($modx, 0, 1) eq '/';
+        my $mod = $modx; $mod =~ s!/!::!g; $mod =~ s!\.pm$!!;
+        no strict 'refs';
+        my $version = ${*{"${mod}::VERSION"}{SCALAR}};
+        my $vstring = defined($version) ? sprintf('%5.2f', $version) : 'undef';
+        printf "%-20s\t%s\t%s\n", $mod, $vstring, $INC{$modx};
+      }
+    },
+    hidden    => 1,
+   },  ];
 
 # STANDARD TEXT --------------------------------------------------------------
 
@@ -518,7 +521,7 @@ use constant ERR_UNKNOWN        => 255;
 # -------------------------------------
 
 our $PACKAGE = 'Getopt-Plus';
-our $VERSION = '0.98';
+our $VERSION = '0.99';
 
 # -------------------------------------
 # CLASS CONSTRUCTION
@@ -1196,9 +1199,13 @@ sub init {
                );
 
   # Check for mandatory args
-  my @missing = grep ! exists $args{$_}, qw( main scriptname );
+  my @missing = grep ! exists $args{$_}, qw( main );
   croak sprintf("Manadatory arguments missing: %s\n", join(', ', @missing))
     if @missing;
+
+  # default scriptname
+  $args{scriptname} = $Script
+    unless exists $args{scriptname};
 
   # Check validity of options, c_years arguments
   $config{options} = delete $args{options} || [];
@@ -1216,7 +1223,7 @@ sub init {
     push @{$config{options}}, $opt
       if  ! defined $opt || ! exists $opt->{arg_trigger} || $args{$name};
   }
-  
+
   # Copy in config from arguments
   $config{$_} = delete $args{$_}
     for grep(exists $args{$_},
@@ -1243,14 +1250,13 @@ sub init {
   }
 
   # Check copyright & c_years
-  croak "c_years must be provided with __CYEARS__ in copyright text"
-    if ( exists $config{copyright}           and 
-         $config{copyright} =~ /__CYEARS__/  and 
-         ! defined $config{c_years} );
+  if ( exists $config{copyright} and $config{copyright} =~ /__CYEARS__/ ) {
+    croak "c_years must be provided with __CYEARS__ in copyright text"
+      unless defined $config{c_years};
 
-  croak sprintf("'c_years' must have some (sensible) values")
-    unless grep(($_ >= 1990 && $_ <= 1900+(localtime)[5]),
-                @{$config{c_years}});
+    croak sprintf("'c_years' values out of range")
+      if grep(($_ < 1990 || $_ > 1900+(localtime)[5]+1), @{$config{c_years}});
+  }
 
   croak sprintf "'arg_ary' must be 0, 1, '*'  or '+'"
     unless ( $config{arg_ary} eq '+' or
@@ -1611,7 +1617,7 @@ sub _opt_spec {
       $opt1{fullname} = $opt2{fullname} = join '|', sort { length($b) <=> length($a) } @{$opt->{names}};
       $opt2{names} = [grep length($_) == 1, @{$opt->{names}} ];
       $opt1{names} = [grep length($_) >  1, @{$opt->{names}} ];
-      die("No multi-char options named for opt arg option ", 
+      die("No multi-char options named for opt arg option ",
           join(',', @{$opt2{names}}), "\n")
         unless @{$opt->{names}};
       delete $opt2{type};
@@ -1817,7 +1823,8 @@ sub run {
       # Protect from early death so, e.g., C<end> can run
       if ( defined $self->interface && $self->interface >= 0.96 ) {
         my ($argv) = $initialize->($self, \@ARGV);
-        @ARGV = @$argv;
+        @ARGV = @$argv
+          if defined $argv;
       } else {
         $initialize->($self);
       }
@@ -1895,7 +1902,9 @@ sub run {
           }
         }
       } else {
-        $self->die(ERR_USAGE, 'At least one arg must be given');
+        eval {
+          $self->die(ERR_USAGE, 'At least one arg must be given');
+        }
       }
     }
 
@@ -2373,6 +2382,8 @@ sub _make_pod_opts {
           substr($lines[$lineno], 0, length($opttext)) = $opttext;
         }
       }
+      s/\s+$//
+        for @lines;
       print $fh join("\n",@lines), "\n";
     }
   }

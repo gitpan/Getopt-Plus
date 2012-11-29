@@ -6,9 +6,9 @@ Usage:
       -A|--arg2     [float]     1.5            
       -b|--bob                  ------         
 
-      -v|--verbose  [fd/level]                 Output informational messages
-      --progress    [fd/level]                 Output progress messages
-      --stats       [fd/level]                 Output statistical information
+      -v|--verbose                             Output informational messages
+      --progress                               Output progress messages
+      --stats                                  Output statistical information
 
       --help        [string]                   Produce summary help on stdout
       --longhelp                               Produce long help on stdout
@@ -18,7 +18,7 @@ Usage:
       -V|--briefversion                        Produce brief version on stdout
 
       --dry-run                                Don't really do anything
-      --debug       [fd/level]                 
+      --debug       [fd/level]
 
 Options:
     Options come in short (single-character) and/or long forms. Short

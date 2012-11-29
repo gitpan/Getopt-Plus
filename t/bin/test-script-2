@@ -70,8 +70,8 @@ my $RSE =
                   finalize   => sub { print "finalize\n"; },
                   end        => sub { print "end\n"; },
                   main       => sub { print "main\n"; },
-                  mode_info  => { 'secondary' => 
-                                  { initialize => 
+                  mode_info  => { 'secondary' =>
+                                  { initialize =>
                                     sub { print "INITIALIZE\n" },
                                     main       =>
                                     sub { print "MAIN\n" },

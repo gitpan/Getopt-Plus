@@ -9,19 +9,233 @@ This package tests the check/initialize/finalize/end utility of Getopt::Plus
 =cut
 
 use Env                        qw( @PATH );
-use File::Spec::Functions  1.1 qw( catdir );
+use File::Basename             qw( basename );
+use File::Spec::Functions  1.1 qw( catdir catfile updir );
 use FindBin               1.42 qw( $Bin );
-use Test                  1.13 qw( ok plan );
+use IO::All                    qw( io );
+use IPC::Run                   qw( harness );
+use Test::Most                 tests => 29;
 
 use lib $Bin;
-use test  qw( LIB_DIR
-              PERL );
-use test2 qw( simple_run_test );
+use test  qw( BIN_DIR LIB_DIR PERL REF_DIR
+              compare only_files
+           );
+# use test2 qw( simple_run_test );
 
 BEGIN {
   # 1 for compilation test,
-  plan tests  => 29,
-       todo   => [],
+#  plan tests  => 29,
+#       todo   => [],
+}
+
+# ----------------------------------------------------------------------------
+
+# -------------------------------------
+# PACKAGE CONSTANTS
+# -------------------------------------
+
+use constant DEBUG => 0;
+
+# -------------------------------------
+# PACKAGE FUNCTIONS
+# -------------------------------------
+
+=head2 runcheck
+
+Run an external command, check the results.
+
+=over 4
+
+=item ARGUMENTS
+
+=over 4
+
+=item runargs
+
+An arrayref of arguments as for L<IPC::Run/run>, excepting that array ref
+arguments with an initial C<:> character on the first member will be
+considered as perl scripts in the module built to run.
+
+For example, an invocation of
+
+  runcheck([[':reverse'], '<', '/etc/passwd'], "bob", \$err);
+
+will convert the initial reverse to treat it as a perl script called
+F<reverse> to find in the module, and execute that with the current running
+perl.  The remaining arguments are left as is.
+
+=item name
+
+The name of the program to refer to in error messages
+
+=item errref
+
+Reference to a scalar to read in case of error.  Normally, this is bound to a
+scalar where is deposited the stderr out of the command, using arguments
+
+  '2>', $err
+
+in L</runargs>.
+
+=item exitcode
+
+I<Optional>.  If defined, the exitcode to expect from the run program.
+Defaults to zero.
+
+=back
+
+=item RETURNS
+
+=over 4
+
+=item success
+
+1 if the command executed without failure; false otherwise.
+
+=back
+
+=back
+
+=cut
+
+sub runcheck {
+  my ($runargs, $name, $errref, $exitcode) = @_;
+
+  $exitcode ||= 0;
+
+  my @args = map({ ( ref $_ eq 'ARRAY' and substr($_->[0],0,1) eq ':') ?
+                     [ $^X, catfile(BIN_DIR, substr($_->[0],1)),
+                       @{$_}[1..$#$_] ]                                :
+                     $_ }
+                 @$runargs);
+
+  print STDERR Data::Dumper->new([\@args],[qw(args)])->Indent(0)->Dump, "\n"
+    if defined $ENV{TEST_DEBUG} and $ENV{TEST_DEBUG} > 1;
+  my $rv = _ipc_run(@args);
+
+  if ( $rv >> 8 != $exitcode ) {
+    if ( $ENV{TEST_DEBUG} ) {
+      print STDERR
+        sprintf("$name failed (expected %d) : exit/sig/core %d/%d/%d\n",
+                $exitcode, $rv >> 8, $rv & 127, ( $rv & 128 ) >> 7);
+      print STDERR
+        "  $$errref\n"
+          if defined $errref and defined $$errref and $$errref !~ /^\s*$/;
+    }
+    return;
+  } else {
+    return 1;
+  }
+}
+
+sub _ipc_run {
+  my @args = @_;
+  my $harness = harness(@args);
+  run $harness;
+  return $harness->full_result;
+}
+
+# -------------------------------------
+
+=head2 simple_run_test
+
+This is designed to simplify the job of running a program, and testing the
+output.  It performs 2+n tests; that the command executed without error, that
+the n files named in the C<checkfiles> argument are each as expected, and that
+no other files exist.
+
+All files in the current directory are wiped after the test in preparation for
+the next test.
+
+=over 4
+
+=item ARGUMENTS
+
+The arguments are considered as name/value pairs.
+
+=over 4to
+L<runcheck|/runcheck>.
+
+=item runargs
+
+B<Mandatory>.  This is an arrayref; as for the runargs argument to
+L<runcheck|/runcheck>.
+
+=item name
+
+B<Mandatory>.  The name to use in error messages.
+
+=item checkfiles
+
+This is an arrayref of files to check.  The named files are considered
+relative to the working directory, and are checked against files taken
+relative to the F<testref> directory of the build.  Therefore, absolute file
+names are non-sensical, and will raise an exception.
+
+=item errref
+
+A ref to a scalar potentially containing any error output.  Typically, the
+stderr of the command run is redirected to this by the runargs argument.
+
+=item testref_subdir
+
+A subdirectory of the testref directory in which to find the files to check
+against.
+
+=item exitcode
+
+The exit code to expect from the program run.  Defaults to 0.  Obviously.
+
+=back
+
+=item RETURNS
+
+I<None>
+
+However, 2+n tests are performed, with ok/not ok sent to stdout.
+
+=back
+
+=cut
+
+sub simple_run_test {
+  my (%arg) = @_;
+
+  die sprintf("%s: missing mandatory argument: %s\n", (caller(0))[3], $_)
+    for grep ! exists $arg{$_}, qw( runargs name );
+
+  ${$arg{errref}} = ''
+    if exists $arg{errref};
+  $arg{exitcode} = 0
+    unless exists $arg{exitcode};
+  my $runok = runcheck(@arg{qw(runargs name errref exitcode)});
+
+  ok $runok, $arg{name};
+
+  my $ref_dir = (exists $arg{testref_subdir}           ?
+                 catdir(REF_DIR, $arg{testref_subdir}) :
+                 REF_DIR);
+
+  if ( exists $arg{checkfiles} ) {
+    for (@{$arg{checkfiles}}) {
+      my $target = catfile($ref_dir, basename $_);
+      if ( -e $target ) {
+        my @expect = io($target)->slurp;
+        my @got    = io($_)->slurp;
+        is_deeply \@got, \@expect, "$arg{name}: check file $_ vs. $target";
+      } else {
+        ok 0, "$arg{name}: missing reference file $target";
+      }
+    }
+  }
+
+  ok(only_files($arg{checkfiles}), "$arg{name}: no extra files");
+  # Clean up files for next test.
+  local *MYDIR;
+  opendir MYDIR, '.';
+  unlink $_
+    for grep !/^\.\.?$/, readdir MYDIR;
+  closedir MYDIR;
 }
 
 # ----------------------------------------------------------------------------
@@ -35,7 +249,7 @@ successfully.
 
 unshift @PATH, catdir $Bin, 'bin';
 
-ok 1, 1, 'compilation';
+ok 1, 'compilation';
 
 # -------------------------------------
 
@@ -88,7 +302,7 @@ Run the test script, with the --fail1 option
                   testref_subdir => 'check',
                   exitcode       => 3,
                   );
-  ok $err, "Squeek\ninitialize failed\n",                        'fail1 ( 4)';
+  like $err, qr/^(Squeek\n)+(initialize failed\n)+$/,                 'fail1 ( 4)';
 }
 
 # -------------------------------------
@@ -117,7 +331,7 @@ Run the test script, with the --fail2 option
                   testref_subdir => 'check',
                   exitcode       => 255,
                   );
-  ok $err, "Squawk\ninitialize failed\n",                        'fail2 ( 4)';
+  like $err, qr/^(Squawk\n)+(initialize failed\n)+$/,              'fail2 ( 4)';
 }
 
 # -------------------------------------
@@ -146,7 +360,7 @@ Run the test script, with the --fail3 option
                   testref_subdir => 'check',
                   exitcode       => 0,
                   );
-  ok $err, '',                                                   'fail3 ( 4)';
+  is $err, '',                                                   'fail3 ( 4)';
 }
 
 # -------------------------------------
@@ -175,7 +389,7 @@ Run the test script, with the --msg option
                   testref_subdir => 'check',
                   exitcode       => 255,
                   );
-  ok $err, "Message\ncheck failed\n",                              'msg ( 4)';
+  like $err, qr/^(Message\n)+(check failed\n)+$/,                    'msg ( 4)';
 }
 
 # -------------------------------------
